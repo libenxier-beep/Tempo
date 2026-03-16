@@ -211,6 +211,8 @@ function registerServiceWorker() {
 
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./sw.js").then((registration) => {
+      registration.update();
+
       if (registration.waiting) {
         showUpdateBanner(registration.waiting);
       }

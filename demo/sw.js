@@ -1,10 +1,10 @@
-const CACHE_NAME = "tempo-demo-v4";
+const CACHE_NAME = "tempo-demo-v5";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=20260316d",
-  "./app.js?v=20260316d",
-  "./manifest.webmanifest?v=20260316d",
+  "./styles.css?v=20260316e",
+  "./app.js?v=20260316e",
+  "./manifest.webmanifest?v=20260316e",
   "./icon.svg",
 ];
 
@@ -29,6 +29,30 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") {
+    return;
+  }
+
+  const requestUrl = new URL(event.request.url);
+  const isNavigationRequest = event.request.mode === "navigate";
+  const isDocumentRequest =
+    requestUrl.origin === self.location.origin &&
+    (requestUrl.pathname.endsWith("/") || requestUrl.pathname.endsWith("/index.html"));
+
+  if (isNavigationRequest || isDocumentRequest) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200 && response.type === "basic") {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put("./index.html", responseClone));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          return cached || caches.match("./index.html");
+        }),
+    );
     return;
   }
 

@@ -13,7 +13,7 @@
     <script>
       (function () {
         const isLocalDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-        const assetVersion = isLocalDev ? `dev-${Date.now()}` : "20260316d";
+        const assetVersion = isLocalDev ? `dev-${Date.now()}` : "20260316e";
 
         window.__TEMPO_ASSET_VERSION__ = assetVersion;
         window.__TEMPO_LOCAL_DEV__ = isLocalDev;
@@ -279,7 +279,7 @@
     <script>
       (function () {
         const script = document.createElement("script");
-        script.src = `./app.js?v=${window.__TEMPO_ASSET_VERSION__ || "20260316d"}`;
+        script.src = `./app.js?v=${window.__TEMPO_ASSET_VERSION__ || "20260316e"}`;
         document.body.appendChild(script);
       })();
     </script>

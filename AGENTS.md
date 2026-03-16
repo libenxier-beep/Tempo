@@ -27,6 +27,7 @@ If this file becomes stale, update it instead of working around it silently.
 - Before implementation work, first align using an agentic engineering approach: clarify goal, scope, constraints, and success criteria with the user instead of silently choosing the product direction.
 - During alignment, ask one question at a time unless the user explicitly asks for a batch of questions.
 - When the work reaches a meaningful milestone that should be snapshotted in Git, proactively ask the user for authorization to create a commit.
+- Default release flow in this project: make changes on the localhost version first, let the user verify locally, and only push the exact same code online after the user explicitly approves release.
 - For ambiguous technical choices, make a reasonable default and state it briefly.
 - When making code changes, explain the outcome and any remaining risk.
 - When asked to create durable guidance, write it into versioned project files.
@@ -127,3 +128,4 @@ Append new durable preferences and decisions here as collaboration evolves.
 - 2026-03-16: During product alignment in this workspace, ask one question at a time by default.
 - 2026-03-16: When a meaningful milestone is reached, proactively ask the user for authorization before creating a Git commit.
 - 2026-03-16: In this project, the main Codex session normally acts as the Terminal D-style lead; separate helper terminals are optional only when parallel work is useful.
+- 2026-03-17: Default release flow is localhost-first; user verifies locally first, then Codex pushes the exact same code online only after explicit approval.
