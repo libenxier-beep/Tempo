@@ -292,8 +292,22 @@ textarea {
   gap: 12px;
 }
 
+.history-filter-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
 .project-list {
   max-height: min(48vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 4px;
+}
+
+.history-list {
+  max-height: min(52vh, 460px);
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;

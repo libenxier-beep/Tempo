@@ -5,6 +5,9 @@ const uiState = {
   projectSortMode: "recent",
   projectSearch: "",
   historySortMode: "duration",
+  historyProjectSearch: "",
+  historyDateMode: "all",
+  historyDateSearch: "",
   dashboardPeriod: "day",
   historyExpandedId: null,
   typeEditId: null,
@@ -22,6 +25,10 @@ const els = {
   currentSelfTask: document.querySelector("#currentSelfTask"),
   runningAgentTasks: document.querySelector("#runningAgentTasks"),
   historySort: document.querySelector("#historySort"),
+  historyProjectSearch: document.querySelector("#historyProjectSearch"),
+  historyDateMode: document.querySelector("#historyDateMode"),
+  historyDateSearchWrap: document.querySelector("#historyDateSearchWrap"),
+  historyDateSearch: document.querySelector("#historyDateSearch"),
   historySummary: document.querySelector("#historySummary"),
   historyList: document.querySelector("#historyList"),
   dashboardMetrics: document.querySelector("#dashboardMetrics"),
@@ -100,6 +107,19 @@ function bindEvents() {
 
   els.historySort.addEventListener("change", (event) => {
     uiState.historySortMode = event.target.value;
+    renderHistory();
+  });
+  els.historyProjectSearch.addEventListener("input", (event) => {
+    uiState.historyProjectSearch = event.target.value.trim();
+    renderHistory();
+  });
+  els.historyDateMode.addEventListener("change", (event) => {
+    uiState.historyDateMode = event.target.value;
+    uiState.historyDateSearch = "";
+    renderHistory();
+  });
+  els.historyDateSearch.addEventListener("input", (event) => {
+    uiState.historyDateSearch = event.target.value;
     renderHistory();
   });
 
@@ -331,17 +351,28 @@ function renderHomeEmptyCreate(data, filteredProjects, query) {
 
 function renderHistory() {
   const data = appStore.get();
-  const sessions = sortSessions(data.sessions, uiState.historySortMode);
+  const filteredSessions = filterHistorySessions(
+    data.sessions,
+    data,
+    uiState.historyProjectSearch,
+    uiState.historyDateMode,
+    uiState.historyDateSearch,
+  );
+  const sessions = sortSessions(filteredSessions, uiState.historySortMode);
   els.historySort.value = uiState.historySortMode;
-  const runningCount = data.sessions.filter((session) => !session.endAt).length;
+  els.historyProjectSearch.value = uiState.historyProjectSearch;
+  els.historyDateMode.value = uiState.historyDateMode;
+  syncHistoryDateInput();
+  els.historyDateSearch.value = uiState.historyDateSearch;
+  const runningCount = filteredSessions.filter((session) => !session.endAt).length;
   els.historySummary.innerHTML = `
-    <span class="pill gray">总记录 ${data.sessions.length}</span>
+    <span class="pill gray">当前结果 ${filteredSessions.length}</span>
     <span class="pill gray">进行中 ${runningCount}</span>
-    <span class="pill gray">已结束 ${data.sessions.length - runningCount}</span>
+    <span class="pill gray">已结束 ${filteredSessions.length - runningCount}</span>
   `;
 
   if (!sessions.length) {
-    els.historyList.innerHTML = `<div class="empty-state">还没有历史记录。</div>`;
+    els.historyList.innerHTML = `<div class="empty-state">当前筛选条件下没有历史记录。</div>`;
     return;
   }
 
@@ -355,6 +386,45 @@ function renderHistory() {
   els.historyList.querySelectorAll("[data-save-history]").forEach((button) => {
     button.addEventListener("click", () => saveHistoryEdit(button.dataset.saveHistory));
   });
+}
+
+function syncHistoryDateInput() {
+  const mode = uiState.historyDateMode;
+  if (mode === "all") {
+    els.historyDateSearchWrap.classList.add("hidden");
+    els.historyDateSearch.value = "";
+    els.historyDateSearch.type = "date";
+    els.historyDateSearch.placeholder = "";
+    return;
+  }
+
+  els.historyDateSearchWrap.classList.remove("hidden");
+  if (mode === "day") {
+    els.historyDateSearch.type = "date";
+    els.historyDateSearch.placeholder = "选择某一天";
+    els.historyDateSearch.removeAttribute("min");
+    els.historyDateSearch.removeAttribute("max");
+    return;
+  }
+  if (mode === "week") {
+    els.historyDateSearch.type = "week";
+    els.historyDateSearch.placeholder = "选择某一周";
+    els.historyDateSearch.removeAttribute("min");
+    els.historyDateSearch.removeAttribute("max");
+    return;
+  }
+  if (mode === "month") {
+    els.historyDateSearch.type = "month";
+    els.historyDateSearch.placeholder = "选择某个月";
+    els.historyDateSearch.removeAttribute("min");
+    els.historyDateSearch.removeAttribute("max");
+    return;
+  }
+
+  els.historyDateSearch.type = "number";
+  els.historyDateSearch.placeholder = "输入年份，例如 2026";
+  els.historyDateSearch.min = "2000";
+  els.historyDateSearch.max = "2099";
 }
 
 function renderHistoryCard(session, data) {
@@ -880,6 +950,69 @@ function sortSessions(sessions, mode) {
     return sorted.sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
   }
   return sorted.sort((a, b) => getSessionDurationMs(b) - getSessionDurationMs(a));
+}
+
+function filterHistorySessions(sessions, data, projectQuery, dateMode, dateQuery) {
+  const normalizedProjectQuery = projectQuery.toLowerCase();
+  return sessions.filter((session) => {
+    const project = findProject(data, session.projectId);
+    const matchesProject = !normalizedProjectQuery || (project?.name || "").toLowerCase().includes(normalizedProjectQuery);
+    const matchesDate = matchesHistoryDate(session, dateMode, dateQuery);
+    return matchesProject && matchesDate;
+  });
+}
+
+function matchesHistoryDate(session, dateMode, dateQuery) {
+  if (dateMode === "all" || !dateQuery) {
+    return true;
+  }
+
+  const start = new Date(session.startAt);
+  const end = session.endAt ? new Date(session.endAt) : null;
+
+  if (dateMode === "day") {
+    return dateKey(start) === dateQuery || (end ? dateKey(end) === dateQuery : false);
+  }
+
+  if (dateMode === "week") {
+    const [yearPart, weekPart] = dateQuery.split("-W");
+    const weekYear = Number(yearPart);
+    const weekNumber = Number(weekPart);
+    return isInIsoWeek(start, weekYear, weekNumber) || (end ? isInIsoWeek(end, weekYear, weekNumber) : false);
+  }
+
+  if (dateMode === "month") {
+    const [yearPart, monthPart] = dateQuery.split("-");
+    return isInYearMonth(start, Number(yearPart), Number(monthPart)) || (end ? isInYearMonth(end, Number(yearPart), Number(monthPart)) : false);
+  }
+
+  if (dateMode === "year") {
+    const year = Number(dateQuery);
+    return start.getFullYear() === year || (end ? end.getFullYear() === year : false);
+  }
+
+  return true;
+}
+
+function isInYearMonth(date, year, month) {
+  return date.getFullYear() === year && date.getMonth() + 1 === month;
+}
+
+function isInIsoWeek(date, targetYear, targetWeek) {
+  const { year, week } = getIsoWeekInfo(date);
+  return year === targetYear && week === targetWeek;
+}
+
+function getIsoWeekInfo(date) {
+  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNumber = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNumber);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((target - yearStart) / 86400000) + 1) / 7);
+  return {
+    year: target.getUTCFullYear(),
+    week,
+  };
 }
 
 function buildDashboardMetrics(data, period) {

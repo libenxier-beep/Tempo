@@ -97,6 +97,19 @@
                 <option value="asc">时间正序</option>
               </select>
             </div>
+            <div class="history-filter-grid">
+              <input id="historyProjectSearch" type="search" placeholder="按具体项目检索" />
+              <select id="historyDateMode">
+                <option value="all">全部</option>
+                <option value="day">天</option>
+                <option value="week">周</option>
+                <option value="month">月</option>
+                <option value="year">年</option>
+              </select>
+              <div id="historyDateSearchWrap" class="hidden">
+                <input id="historyDateSearch" type="date" />
+              </div>
+            </div>
             <div id="historySummary" class="summary-row"></div>
             <div id="historyList" class="history-list"></div>
           </section>
