@@ -77,6 +77,51 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.28);
 }
 
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 22, 30, 0.34);
+}
+
+.confirm-sheet {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100% - 24px), 516px);
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  padding: 18px;
+  border-radius: 24px;
+  background: rgba(247, 250, 253, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 24px 54px rgba(18, 35, 52, 0.18);
+  display: grid;
+  gap: 14px;
+  animation: slide-up 180ms ease;
+}
+
+.confirm-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.confirm-message {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.confirm-actions {
+  display: grid;
+  gap: 10px;
+}
+
 button,
 input,
 select,
@@ -301,8 +346,7 @@ textarea {
 .quick-create-actions,
 .badge-row,
 .summary-row,
-.archive-toggle-row,
-.admin-actions {
+.archive-toggle-row {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
@@ -411,7 +455,7 @@ textarea {
 .history-card,
 .stack-card,
 .metric-card {
-  padding: 14px;
+  padding: 12px;
 }
 
 .agent-card,
@@ -422,6 +466,35 @@ textarea {
   justify-content: space-between;
   gap: 12px;
   align-items: start;
+}
+
+.admin-row {
+  align-items: flex-start;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.admin-actions .inline-button,
+.admin-actions .primary-button {
+  width: auto;
+  text-align: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.admin-actions .inline-button {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.82);
 }
 
 .project-card {
@@ -568,6 +641,7 @@ textarea {
   background: rgba(235, 243, 249, 0.92);
   backdrop-filter: blur(16px);
   border-top: 1px solid rgba(24, 33, 42, 0.08);
+  border-radius: 26px 26px 0 0;
 }
 
 .nav-item {
@@ -592,6 +666,18 @@ textarea {
   from {
     opacity: 0;
     transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
   }
 
   to {

@@ -17,6 +17,7 @@ const uiState = {
   showTypeCreate: false,
   showProjectCreate: false,
   showArchivedProjects: false,
+  confirmDialog: null,
 };
 
 const els = {
@@ -25,6 +26,12 @@ const els = {
   networkBanner: document.querySelector("#networkBanner"),
   updateBanner: document.querySelector("#updateBanner"),
   applyUpdateButton: document.querySelector("#applyUpdateButton"),
+  confirmModal: document.querySelector("#confirmModal"),
+  confirmBackdrop: document.querySelector("#confirmBackdrop"),
+  confirmTitle: document.querySelector("#confirmTitle"),
+  confirmMessage: document.querySelector("#confirmMessage"),
+  confirmCancelButton: document.querySelector("#confirmCancelButton"),
+  confirmAcceptButton: document.querySelector("#confirmAcceptButton"),
   projectSearch: document.querySelector("#projectSearch"),
   searchFeedback: document.querySelector("#searchFeedback"),
   projectList: document.querySelector("#projectList"),
@@ -180,6 +187,9 @@ function bindEvents() {
   window.addEventListener("online", () => syncNetworkBanner(true));
   window.addEventListener("offline", () => syncNetworkBanner(false));
   els.applyUpdateButton.addEventListener("click", applyPendingUpdate);
+  els.confirmBackdrop.addEventListener("click", closeConfirmDialog);
+  els.confirmCancelButton.addEventListener("click", closeConfirmDialog);
+  els.confirmAcceptButton.addEventListener("click", runConfirmDialog);
 }
 
 function render() {
@@ -274,6 +284,28 @@ function applyPendingUpdate() {
 
   pendingServiceWorker.postMessage({ type: "SKIP_WAITING" });
   els.updateBanner.classList.add("hidden");
+}
+
+function openConfirmDialog({ title, message, confirmText = "确认", confirmVariant = "danger", onConfirm }) {
+  uiState.confirmDialog = { onConfirm };
+  els.confirmTitle.textContent = title;
+  els.confirmMessage.textContent = message;
+  els.confirmAcceptButton.textContent = confirmText;
+  els.confirmAcceptButton.classList.toggle("danger", confirmVariant === "danger");
+  els.confirmModal.classList.remove("hidden");
+  els.confirmModal.setAttribute("aria-hidden", "false");
+}
+
+function closeConfirmDialog() {
+  uiState.confirmDialog = null;
+  els.confirmModal.classList.add("hidden");
+  els.confirmModal.setAttribute("aria-hidden", "true");
+}
+
+function runConfirmDialog() {
+  const pending = uiState.confirmDialog;
+  closeConfirmDialog();
+  pending?.onConfirm?.();
 }
 
 function toggleViews() {
@@ -1083,6 +1115,16 @@ function syncInlineProjectSaveState(projectId) {
 }
 
 function deleteType(typeId) {
+  openConfirmDialog({
+    title: "确认删除项目类型",
+    message: "删除前系统仍会检查它下面是否还有具体项目；如果还有，删除会被阻止。",
+    confirmText: "确认删除",
+    confirmVariant: "danger",
+    onConfirm: () => performDeleteType(typeId),
+  });
+}
+
+function performDeleteType(typeId) {
   const data = appStore.get();
   const relatedProjects = data.projects.filter((project) => project.typeId === typeId);
   if (relatedProjects.length) {
@@ -1096,6 +1138,16 @@ function deleteType(typeId) {
 }
 
 function archiveProject(projectId) {
+  openConfirmDialog({
+    title: "确认归档具体项目",
+    message: "归档后它不会再出现在首页可选项里，但历史记录会保留。",
+    confirmText: "确认归档",
+    confirmVariant: "danger",
+    onConfirm: () => performArchiveProject(projectId),
+  });
+}
+
+function performArchiveProject(projectId) {
   const data = appStore.get();
   const running = data.sessions.find((session) => session.projectId === projectId && !session.endAt);
   if (running) {

@@ -39,6 +39,17 @@
         <span>发现新版本，点一下更新。</span>
         <button id="applyUpdateButton" class="inline-button update-action" type="button">立即更新</button>
       </div>
+      <div id="confirmModal" class="confirm-modal hidden" aria-hidden="true">
+        <button id="confirmBackdrop" class="confirm-backdrop" type="button" aria-label="关闭确认弹层"></button>
+        <div class="confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+          <p id="confirmTitle" class="confirm-title">确认操作</p>
+          <p id="confirmMessage" class="confirm-message"></p>
+          <div class="confirm-actions">
+            <button id="confirmCancelButton" class="inline-button" type="button">取消</button>
+            <button id="confirmAcceptButton" class="primary-button danger" type="button">确认</button>
+          </div>
+        </div>
+      </div>
       <main class="screen">
         <section id="homeView" class="view is-active" data-view="home">
           <header class="topbar">
