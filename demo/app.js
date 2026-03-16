@@ -20,6 +20,8 @@ const els = {
   views: document.querySelectorAll(".view"),
   navItems: document.querySelectorAll(".nav-item"),
   networkBanner: document.querySelector("#networkBanner"),
+  updateBanner: document.querySelector("#updateBanner"),
+  applyUpdateButton: document.querySelector("#applyUpdateButton"),
   projectSearch: document.querySelector("#projectSearch"),
   searchFeedback: document.querySelector("#searchFeedback"),
   projectList: document.querySelector("#projectList"),
@@ -74,6 +76,7 @@ const appStore = {
 };
 
 let timerHandle = null;
+let pendingServiceWorker = null;
 
 function createId() {
   if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
@@ -162,6 +165,7 @@ function bindEvents() {
 
   window.addEventListener("online", () => syncNetworkBanner(true));
   window.addEventListener("offline", () => syncNetworkBanner(false));
+  els.applyUpdateButton.addEventListener("click", applyPendingUpdate);
 }
 
 function render() {
@@ -178,9 +182,35 @@ function registerServiceWorker() {
   }
 
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(() => {
+    navigator.serviceWorker.register("./sw.js").then((registration) => {
+      if (registration.waiting) {
+        showUpdateBanner(registration.waiting);
+      }
+
+      registration.addEventListener("updatefound", () => {
+        const nextWorker = registration.installing;
+        if (!nextWorker) {
+          return;
+        }
+
+        nextWorker.addEventListener("statechange", () => {
+          if (nextWorker.state === "installed" && navigator.serviceWorker.controller) {
+            showUpdateBanner(nextWorker);
+          }
+        });
+      });
+    }).catch(() => {
       // Keep the demo usable even if service worker registration fails.
     });
+  });
+
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (registerServiceWorker.hasReloaded) {
+      return;
+    }
+
+    registerServiceWorker.hasReloaded = true;
+    window.location.reload();
   });
 }
 
@@ -195,6 +225,20 @@ function syncNetworkBanner(isOnline) {
       els.networkBanner.classList.add("hidden");
     }, 1600);
   }
+}
+
+function showUpdateBanner(worker) {
+  pendingServiceWorker = worker;
+  els.updateBanner.classList.remove("hidden");
+}
+
+function applyPendingUpdate() {
+  if (!pendingServiceWorker) {
+    return;
+  }
+
+  pendingServiceWorker.postMessage({ type: "SKIP_WAITING" });
+  els.updateBanner.classList.add("hidden");
 }
 
 function toggleViews() {

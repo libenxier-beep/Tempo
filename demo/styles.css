@@ -52,6 +52,31 @@ body {
   background: rgba(201, 137, 26, 0.92);
 }
 
+.update-banner {
+  position: sticky;
+  top: 10px;
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(75, 159, 225, 0.94);
+  color: #f6fbff;
+  box-shadow: var(--shadow);
+}
+
+.update-action {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
 button,
 input,
 select,
