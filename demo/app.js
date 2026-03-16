@@ -44,14 +44,12 @@ const els = {
   nicknameHint: document.querySelector("#nicknameHint"),
   typeForm: document.querySelector("#typeForm"),
   typeNameInput: document.querySelector("#typeNameInput"),
-  typeSubmitButton: document.querySelector("#typeSubmitButton"),
   typeConstraintHint: document.querySelector("#typeConstraintHint"),
   typeList: document.querySelector("#typeList"),
   projectForm: document.querySelector("#projectForm"),
   projectTypeSelect: document.querySelector("#projectTypeSelect"),
   projectNameInput: document.querySelector("#projectNameInput"),
   projectActorSelect: document.querySelector("#projectActorSelect"),
-  projectSubmitButton: document.querySelector("#projectSubmitButton"),
   toggleArchivedButton: document.querySelector("#toggleArchivedButton"),
   projectAdminList: document.querySelector("#projectAdminList"),
   archivedProjectList: document.querySelector("#archivedProjectList"),
@@ -623,7 +621,6 @@ function renderManage() {
   renderTypeSelectOptions(data);
   renderTypeList(data);
   renderProjectLists(data);
-  updateManageForms();
 }
 
 function renderNickname(data) {
@@ -650,6 +647,7 @@ function renderTypeList(data) {
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((type) => {
       const related = data.projects.filter((project) => project.typeId === type.id).length;
+      const isEditing = uiState.typeEditId === type.id;
       return `
         <article class="stack-card">
           <div class="admin-row">
@@ -662,6 +660,20 @@ function renderTypeList(data) {
               <button class="inline-button warning" type="button" data-delete-type="${type.id}">删除</button>
             </div>
           </div>
+          ${
+            isEditing
+              ? `
+                <div class="inline-edit-panel">
+                  <label class="field-label" for="inline-type-name-${type.id}">编辑项目类型</label>
+                  <input id="inline-type-name-${type.id}" type="text" value="${escapeHtml(type.name)}" />
+                  <div class="admin-actions">
+                    <button class="primary-button" type="button" data-save-type="${type.id}">保存</button>
+                    <button class="inline-button" type="button" data-cancel-type-edit>取消</button>
+                  </div>
+                </div>
+              `
+              : ""
+          }
         </article>
       `;
     })
@@ -675,13 +687,23 @@ function renderTypeList(data) {
         return;
       }
       uiState.typeEditId = type.id;
-      els.typeNameInput.value = type.name;
-      updateManageForms();
+      renderManage();
     });
   });
 
   els.typeList.querySelectorAll("[data-delete-type]").forEach((button) => {
     button.addEventListener("click", () => deleteType(button.dataset.deleteType));
+  });
+
+  els.typeList.querySelectorAll("[data-save-type]").forEach((button) => {
+    button.addEventListener("click", () => saveInlineTypeEdit(button.dataset.saveType));
+  });
+
+  els.typeList.querySelectorAll("[data-cancel-type-edit]").forEach((button) => {
+    button.addEventListener("click", () => {
+      uiState.typeEditId = null;
+      renderManage();
+    });
   });
 }
 
@@ -711,20 +733,29 @@ function renderProjectLists(data) {
         return;
       }
       uiState.projectEditId = project.id;
-      els.projectNameInput.value = project.name;
-      els.projectActorSelect.value = project.actor;
-      els.projectTypeSelect.value = project.typeId;
-      updateManageForms();
+      renderManage();
     });
   });
 
   document.querySelectorAll("[data-archive-project]").forEach((button) => {
     button.addEventListener("click", () => archiveProject(button.dataset.archiveProject));
   });
+
+  document.querySelectorAll("[data-save-project]").forEach((button) => {
+    button.addEventListener("click", () => saveInlineProjectEdit(button.dataset.saveProject));
+  });
+
+  document.querySelectorAll("[data-cancel-project-edit]").forEach((button) => {
+    button.addEventListener("click", () => {
+      uiState.projectEditId = null;
+      renderManage();
+    });
+  });
 }
 
 function renderProjectAdminCard(project, data, archived) {
   const type = findType(data, project.typeId);
+  const isEditing = uiState.projectEditId === project.id;
   return `
     <article class="stack-card">
       <div class="admin-row">
@@ -737,13 +768,31 @@ function renderProjectAdminCard(project, data, archived) {
           ${archived ? "" : `<button class="inline-button warning" type="button" data-archive-project="${project.id}">归档</button>`}
         </div>
       </div>
+      ${
+        isEditing
+          ? `
+            <div class="inline-edit-panel">
+              <label class="field-label" for="inline-project-name-${project.id}">编辑具体项目</label>
+              <input id="inline-project-name-${project.id}" type="text" value="${escapeHtml(project.name)}" />
+              <select id="inline-project-type-${project.id}">
+                ${getActiveTypes(data)
+                  .map((item) => `<option value="${item.id}" ${item.id === project.typeId ? "selected" : ""}>${escapeHtml(item.name)}</option>`)
+                  .join("")}
+              </select>
+              <select id="inline-project-actor-${project.id}">
+                <option value="self" ${project.actor === "self" ? "selected" : ""}>本人</option>
+                <option value="agent" ${project.actor === "agent" ? "selected" : ""}>Agent</option>
+              </select>
+              <div class="admin-actions">
+                <button class="primary-button" type="button" data-save-project="${project.id}">保存</button>
+                <button class="inline-button" type="button" data-cancel-project-edit>取消</button>
+              </div>
+            </div>
+          `
+          : ""
+      }
     </article>
   `;
-}
-
-function updateManageForms() {
-  els.typeSubmitButton.textContent = uiState.typeEditId ? "保存项目类型" : "新增项目类型";
-  els.projectSubmitButton.textContent = uiState.projectEditId ? "保存具体项目" : "新增具体项目";
 }
 
 function handleNicknameSubmit(event) {
@@ -771,7 +820,7 @@ function handleTypeSubmit(event) {
   }
 
   const data = appStore.get();
-  const duplicate = data.projectTypes.find((type) => type.name === name && type.id !== uiState.typeEditId);
+  const duplicate = data.projectTypes.find((type) => type.name === name);
   if (duplicate) {
     els.typeConstraintHint.textContent = "这个项目类型已经存在。";
     return;
@@ -779,18 +828,13 @@ function handleTypeSubmit(event) {
 
   els.typeConstraintHint.textContent = "";
   const now = new Date().toISOString();
-  if (uiState.typeEditId) {
-    data.projectTypes = data.projectTypes.map((type) => (type.id === uiState.typeEditId ? { ...type, name, updatedAt: now } : type));
-    uiState.typeEditId = null;
-  } else {
-    data.projectTypes.push({
-      id: createId(),
-      name,
-      sortOrder: data.projectTypes.length,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
+  data.projectTypes.push({
+    id: createId(),
+    name,
+    sortOrder: data.projectTypes.length,
+    createdAt: now,
+    updatedAt: now,
+  });
 
   appStore.save(data);
   els.typeForm.reset();
@@ -808,7 +852,7 @@ function handleProjectSubmit(event) {
 
   const data = appStore.get();
   const duplicate = data.projects.find(
-    (project) => !project.archived && project.typeId === typeId && project.name === name && project.id !== uiState.projectEditId,
+    (project) => !project.archived && project.typeId === typeId && project.name === name,
   );
   if (duplicate) {
     window.alert("同一项目类型下已经有这个具体项目。");
@@ -816,26 +860,19 @@ function handleProjectSubmit(event) {
   }
 
   const now = new Date().toISOString();
-  if (uiState.projectEditId) {
-    data.projects = data.projects.map((project) =>
-      project.id === uiState.projectEditId ? { ...project, name, typeId, actor, updatedAt: now } : project,
-    );
-    uiState.projectEditId = null;
-  } else {
-    data.projects.unshift({
-      id: createId(),
-      typeId,
-      name,
-      actor,
-      archived: false,
-      archivedAt: null,
-      usageCount: 0,
-      lastUsedAt: null,
-      sortOrder: data.projects.length,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
+  data.projects.unshift({
+    id: createId(),
+    typeId,
+    name,
+    actor,
+    archived: false,
+    archivedAt: null,
+    usageCount: 0,
+    lastUsedAt: null,
+    sortOrder: data.projects.length,
+    createdAt: now,
+    updatedAt: now,
+  });
 
   appStore.save(data);
   els.projectForm.reset();
@@ -843,6 +880,57 @@ function handleProjectSubmit(event) {
   if (uiState.currentView === "home") {
     renderHome();
   }
+}
+
+function saveInlineTypeEdit(typeId) {
+  const nameInput = document.querySelector(`#inline-type-name-${CSS.escape(typeId)}`);
+  const name = nameInput?.value.trim();
+  if (!name) {
+    return;
+  }
+
+  const data = appStore.get();
+  const duplicate = data.projectTypes.find((type) => type.name === name && type.id !== typeId);
+  if (duplicate) {
+    els.typeConstraintHint.textContent = "这个项目类型已经存在。";
+    return;
+  }
+
+  els.typeConstraintHint.textContent = "";
+  const now = new Date().toISOString();
+  data.projectTypes = data.projectTypes.map((type) => (type.id === typeId ? { ...type, name, updatedAt: now } : type));
+  uiState.typeEditId = null;
+  appStore.save(data);
+  render();
+}
+
+function saveInlineProjectEdit(projectId) {
+  const nameInput = document.querySelector(`#inline-project-name-${CSS.escape(projectId)}`);
+  const typeSelect = document.querySelector(`#inline-project-type-${CSS.escape(projectId)}`);
+  const actorSelect = document.querySelector(`#inline-project-actor-${CSS.escape(projectId)}`);
+  const name = nameInput?.value.trim();
+  const typeId = typeSelect?.value;
+  const actor = actorSelect?.value;
+  if (!name || !typeId || !actor) {
+    return;
+  }
+
+  const data = appStore.get();
+  const duplicate = data.projects.find(
+    (project) => !project.archived && project.typeId === typeId && project.name === name && project.id !== projectId,
+  );
+  if (duplicate) {
+    window.alert("同一项目类型下已经有这个具体项目。");
+    return;
+  }
+
+  const now = new Date().toISOString();
+  data.projects = data.projects.map((project) =>
+    project.id === projectId ? { ...project, name, typeId, actor, updatedAt: now } : project,
+  );
+  uiState.projectEditId = null;
+  appStore.save(data);
+  render();
 }
 
 function deleteType(typeId) {

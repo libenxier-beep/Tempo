@@ -247,6 +247,9 @@ textarea {
 .stack-form input,
 .stack-form select,
 .stack-form button,
+.inline-edit-panel input,
+.inline-edit-panel select,
+.inline-edit-panel button,
 .history-edit-grid input,
 .history-edit-grid textarea,
 #historySort {
@@ -490,11 +493,19 @@ textarea {
 
 .quick-create-card,
 .stack-form,
+.inline-edit-panel,
 .history-edit-grid,
 .history-summary,
 .stack-card {
   display: grid;
   gap: 12px;
+}
+
+.inline-edit-panel {
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(75, 159, 225, 0.08);
+  border: 1px solid rgba(75, 159, 225, 0.14);
 }
 
 .history-edit-grid textarea {
