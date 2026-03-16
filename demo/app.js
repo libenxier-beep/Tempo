@@ -16,6 +16,7 @@ const els = {
   views: document.querySelectorAll(".view"),
   navItems: document.querySelectorAll(".nav-item"),
   projectSearch: document.querySelector("#projectSearch"),
+  searchFeedback: document.querySelector("#searchFeedback"),
   projectList: document.querySelector("#projectList"),
   homeEmptyCreate: document.querySelector("#homeEmptyCreate"),
   currentSelfTask: document.querySelector("#currentSelfTask"),
@@ -27,6 +28,9 @@ const els = {
   dashboardTypeBreakdown: document.querySelector("#dashboardTypeBreakdown"),
   dashboardTrend: document.querySelector("#dashboardTrend"),
   periodButtons: document.querySelectorAll(".period-segment"),
+  nicknameForm: document.querySelector("#nicknameForm"),
+  nicknameInput: document.querySelector("#nicknameInput"),
+  nicknameHint: document.querySelector("#nicknameHint"),
   typeForm: document.querySelector("#typeForm"),
   typeNameInput: document.querySelector("#typeNameInput"),
   typeSubmitButton: document.querySelector("#typeSubmitButton"),
@@ -106,6 +110,7 @@ function bindEvents() {
     });
   });
 
+  els.nicknameForm.addEventListener("submit", handleNicknameSubmit);
   els.typeForm.addEventListener("submit", handleTypeSubmit);
   els.projectForm.addEventListener("submit", handleProjectSubmit);
   els.toggleArchivedButton.addEventListener("click", () => {
@@ -145,16 +150,34 @@ function toggleViews() {
 function renderHome() {
   const data = appStore.get();
   const projects = getVisibleProjects(data);
-  const filtered = filterProjects(projects, uiState.projectSearch);
+  const filtered = filterProjects(projects, uiState.projectSearch, data);
   const sorted = sortProjects(filtered, uiState.projectSortMode);
 
   els.recentModeButton.classList.toggle("is-active", uiState.projectSortMode === "recent");
   els.frequentModeButton.classList.toggle("is-active", uiState.projectSortMode === "frequent");
 
+  renderSearchFeedback(filtered, uiState.projectSearch);
   renderCurrentSelfTask(getRunningSelfSession(data), data);
   renderRunningAgents(getRunningAgentSessions(data), data);
   renderProjectList(sorted, data);
   renderHomeEmptyCreate(data, filtered, uiState.projectSearch);
+}
+
+function renderSearchFeedback(filteredProjects, query) {
+  if (!query) {
+    els.searchFeedback.innerHTML = `<span class="pill gray">当前展示全部可用项目</span>`;
+    return;
+  }
+
+  els.searchFeedback.innerHTML = `
+    <span class="pill gray">${filteredProjects.length ? `搜到 ${filteredProjects.length} 个项目` : `没有搜到“${escapeHtml(query)}”`}</span>
+    <button id="clearSearchButton" class="inline-button" type="button">清空</button>
+  `;
+  els.searchFeedback.querySelector("#clearSearchButton").addEventListener("click", () => {
+    uiState.projectSearch = "";
+    els.projectSearch.value = "";
+    renderHome();
+  });
 }
 
 function renderCurrentSelfTask(session, data) {
@@ -324,18 +347,35 @@ function renderHistoryCard(session, data) {
           <span class="history-title">${escapeHtml(project?.name || "未知项目")}</span>
           <span class="pill ${project?.actor === "agent" ? "gray" : ""}">${project?.actor === "self" ? "本人" : "Agent"}</span>
         </div>
-        <div class="history-meta">
-          ${formatDateTime(session.startAt)} - ${session.endAt ? formatDateTime(session.endAt) : "进行中"}<br />
-          ${durationText} · ${escapeHtml(type?.name || "未分类")}
+        <div class="history-field-list">
+          <div class="history-field">
+            <span class="history-field-label">开始时间</span>
+            <span class="history-field-value">${formatDateTime(session.startAt)}</span>
+          </div>
+          <div class="history-field">
+            <span class="history-field-label">结束时间</span>
+            <span class="history-field-value">${session.endAt ? formatDateTime(session.endAt) : "进行中"}</span>
+          </div>
+          <div class="history-field">
+            <span class="history-field-label">耗时</span>
+            <span class="history-field-value">${durationText}</span>
+          </div>
+          <div class="history-field">
+            <span class="history-field-label">项目类型</span>
+            <span class="history-field-value">${escapeHtml(type?.name || "未分类")}</span>
+          </div>
         </div>
       </button>
       ${
         expanded
           ? `
             <div class="history-edit-grid">
+              <label class="field-label" for="history-start-${session.id}">开始时间</label>
               <input id="history-start-${session.id}" type="datetime-local" value="${toLocalInputValue(session.startAt)}" />
+              <label class="field-label" for="history-end-${session.id}">结束时间</label>
               <input id="history-end-${session.id}" type="datetime-local" value="${session.endAt ? toLocalInputValue(session.endAt) : ""}" />
-              <textarea id="history-note-${session.id}" placeholder="补充备注">${escapeHtml(session.note || "")}</textarea>
+              <label class="field-label" for="history-note-${session.id}">备注</label>
+              <textarea id="history-note-${session.id}" placeholder="补充备注，让以后回看时看得懂">${escapeHtml(session.note || "")}</textarea>
               <button class="primary-button" type="button" data-save-history="${session.id}">保存修改</button>
             </div>
           `
@@ -400,10 +440,17 @@ function renderDashboard() {
 
 function renderManage() {
   const data = appStore.get();
+  renderNickname(data);
   renderTypeSelectOptions(data);
   renderTypeList(data);
   renderProjectLists(data);
   updateManageForms();
+}
+
+function renderNickname(data) {
+  const nickname = data.profile?.nickname || "";
+  els.nicknameInput.value = nickname;
+  els.nicknameHint.textContent = nickname ? `当前昵称：${nickname}` : "还没有设置昵称。";
 }
 
 function renderTypeSelectOptions(data) {
@@ -518,6 +565,23 @@ function renderProjectAdminCard(project, data, archived) {
 function updateManageForms() {
   els.typeSubmitButton.textContent = uiState.typeEditId ? "保存项目类型" : "新增项目类型";
   els.projectSubmitButton.textContent = uiState.projectEditId ? "保存具体项目" : "新增具体项目";
+}
+
+function handleNicknameSubmit(event) {
+  event.preventDefault();
+  const nickname = els.nicknameInput.value.trim();
+  if (!nickname) {
+    els.nicknameHint.textContent = "昵称不能为空。";
+    return;
+  }
+
+  const data = appStore.get();
+  data.profile = {
+    ...(data.profile || {}),
+    nickname,
+  };
+  appStore.save(data);
+  renderManage();
 }
 
 function handleTypeSubmit(event) {
@@ -880,11 +944,16 @@ function getActiveTypes(data) {
   return data.projectTypes;
 }
 
-function filterProjects(projects, query) {
+function filterProjects(projects, query, data) {
   if (!query) {
     return projects;
   }
-  return projects.filter((project) => project.name.toLowerCase().includes(query.toLowerCase()));
+  const normalized = query.toLowerCase();
+  return projects.filter((project) => {
+    const typeName = findType(data, project.typeId)?.name || "";
+    const actorText = project.actor === "self" ? "本人" : "agent";
+    return [project.name, typeName, actorText].some((value) => String(value).toLowerCase().includes(normalized));
+  });
 }
 
 function getRunningSelfSession(data) {
@@ -956,6 +1025,9 @@ function createSeedData() {
   return {
     version: 1,
     updatedAt: currentIso,
+    profile: {
+      nickname: "曦哥",
+    },
     projectTypes: [
       { id: typeLifeId, name: "生活", sortOrder: 0, createdAt: isoOffset(now, -10), updatedAt: isoOffset(now, -10) },
       { id: typeWorkId, name: "工作", sortOrder: 1, createdAt: isoOffset(now, -9), updatedAt: isoOffset(now, -9) },

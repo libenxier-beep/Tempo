@@ -29,6 +29,7 @@
               <span class="sr-only">搜索具体项目</span>
               <input id="projectSearch" type="search" placeholder="搜索具体项目，找不到就在首页轻量创建" />
             </label>
+            <div id="searchFeedback" class="summary-row"></div>
           </section>
 
           <section class="panel">
@@ -150,6 +151,20 @@
               <h1>我</h1>
             </div>
           </header>
+
+          <section class="panel">
+            <div class="panel-title-row">
+              <div>
+                <p class="eyebrow">个人信息</p>
+                <h2>昵称</h2>
+              </div>
+            </div>
+            <form id="nicknameForm" class="stack-form">
+              <input id="nicknameInput" type="text" placeholder="输入你的昵称" maxlength="24" required />
+              <button class="primary-button" type="submit">保存昵称</button>
+            </form>
+            <div id="nicknameHint" class="inline-hint"></div>
+          </section>
 
           <section class="panel">
             <div class="panel-title-row">

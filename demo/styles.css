@@ -258,6 +258,10 @@ textarea {
   flex-wrap: wrap;
 }
 
+.summary-row {
+  margin-top: 12px;
+}
+
 .primary-button {
   width: 100%;
   padding: 14px 16px;
@@ -320,6 +324,37 @@ textarea {
 .history-title {
   font-size: 18px;
   font-weight: 700;
+}
+
+.history-field-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.history-field {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(75, 159, 225, 0.08);
+}
+
+.history-field-label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.history-field-value {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.field-label {
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .project-meta,
