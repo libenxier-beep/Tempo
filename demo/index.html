@@ -183,7 +183,7 @@
           <header class="topbar">
             <div>
               <p class="eyebrow">Manage</p>
-              <h1>我</h1>
+              <h1 id="manageTitle">我</h1>
             </div>
           </header>
 
@@ -191,12 +191,13 @@
             <div class="panel-title-row">
               <div>
                 <p class="eyebrow">个人信息</p>
-                <h2>昵称</h2>
+                <h2>昵称与座右铭</h2>
               </div>
+              <button id="profileActionButton" class="inline-button" type="button">编辑</button>
             </div>
             <form id="nicknameForm" class="stack-form">
               <input id="nicknameInput" type="text" placeholder="输入你的昵称" maxlength="24" required />
-              <button class="primary-button" type="submit">保存昵称</button>
+              <textarea id="mottoInput" placeholder="写一句座右铭，提醒自己如何分配注意力" maxlength="80"></textarea>
             </form>
             <div id="nicknameHint" class="inline-hint"></div>
           </section>

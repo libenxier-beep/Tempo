@@ -245,6 +245,7 @@ textarea {
 .quick-create-form select,
 .quick-create-form button,
 .stack-form input,
+.stack-form textarea,
 .stack-form select,
 .stack-form button,
 .inline-edit-panel input,
@@ -361,6 +362,11 @@ textarea {
 
 .inline-button.warning {
   color: var(--warning);
+}
+
+.inline-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
 }
 
 .stack-list,

@@ -11,6 +11,7 @@ const uiState = {
   historyStatusFilter: "all",
   dashboardPeriod: "day",
   historyExpandedId: null,
+  profileEditMode: false,
   typeEditId: null,
   projectEditId: null,
   showTypeCreate: false,
@@ -41,8 +42,11 @@ const els = {
   dashboardTypeBreakdown: document.querySelector("#dashboardTypeBreakdown"),
   dashboardTrend: document.querySelector("#dashboardTrend"),
   periodButtons: document.querySelectorAll(".period-segment"),
+  manageTitle: document.querySelector("#manageTitle"),
   nicknameForm: document.querySelector("#nicknameForm"),
+  profileActionButton: document.querySelector("#profileActionButton"),
   nicknameInput: document.querySelector("#nicknameInput"),
+  mottoInput: document.querySelector("#mottoInput"),
   nicknameHint: document.querySelector("#nicknameHint"),
   toggleTypeCreateButton: document.querySelector("#toggleTypeCreateButton"),
   typeForm: document.querySelector("#typeForm"),
@@ -147,6 +151,9 @@ function bindEvents() {
   });
 
   els.nicknameForm.addEventListener("submit", handleNicknameSubmit);
+  els.profileActionButton.addEventListener("click", handleProfileAction);
+  els.nicknameInput.addEventListener("input", syncProfileActionButton);
+  els.mottoInput.addEventListener("input", syncProfileActionButton);
   els.typeForm.addEventListener("submit", handleTypeSubmit);
   els.projectForm.addEventListener("submit", handleProjectSubmit);
   els.toggleTypeCreateButton.addEventListener("click", () => {
@@ -671,8 +678,14 @@ function syncManageCreatePanels() {
 
 function renderNickname(data) {
   const nickname = data.profile?.nickname || "";
+  const motto = data.profile?.motto || "";
+  els.manageTitle.textContent = nickname || "我";
   els.nicknameInput.value = nickname;
-  els.nicknameHint.textContent = nickname ? `当前昵称：${nickname}` : "还没有设置昵称。";
+  els.mottoInput.value = motto;
+  els.nicknameInput.disabled = !uiState.profileEditMode;
+  els.mottoInput.disabled = !uiState.profileEditMode;
+  els.nicknameHint.textContent = motto ? `当前座右铭：${motto}` : "还没有设置座右铭。";
+  syncProfileActionButton();
 }
 
 function renderTypeSelectOptions(data) {
@@ -835,7 +848,12 @@ function renderProjectAdminCard(project, data, archived) {
 
 function handleNicknameSubmit(event) {
   event.preventDefault();
+  if (!uiState.profileEditMode) {
+    return;
+  }
+
   const nickname = els.nicknameInput.value.trim();
+  const motto = els.mottoInput.value.trim();
   if (!nickname) {
     els.nicknameHint.textContent = "昵称不能为空。";
     return;
@@ -845,9 +863,45 @@ function handleNicknameSubmit(event) {
   data.profile = {
     ...(data.profile || {}),
     nickname,
+    motto,
   };
   appStore.save(data);
+  uiState.profileEditMode = false;
   renderManage();
+}
+
+function handleProfileAction() {
+  if (!uiState.profileEditMode) {
+    uiState.profileEditMode = true;
+    renderManage();
+    els.nicknameInput.focus();
+    return;
+  }
+
+  if (els.profileActionButton.disabled) {
+    return;
+  }
+
+  els.nicknameForm.requestSubmit();
+}
+
+function syncProfileActionButton() {
+  const data = appStore.get();
+  const currentNickname = data.profile?.nickname || "";
+  const currentMotto = data.profile?.motto || "";
+
+  if (!uiState.profileEditMode) {
+    els.profileActionButton.textContent = "编辑";
+    els.profileActionButton.disabled = false;
+    return;
+  }
+
+  const hasChanges =
+    els.nicknameInput.value.trim() !== currentNickname ||
+    els.mottoInput.value.trim() !== currentMotto;
+
+  els.profileActionButton.textContent = "保存信息";
+  els.profileActionButton.disabled = !hasChanges;
 }
 
 function handleTypeSubmit(event) {
@@ -1486,6 +1540,7 @@ function createSeedData() {
     updatedAt: currentIso,
     profile: {
       nickname: "曦哥",
+      motto: "时间不可控，注意力可安放。",
     },
     projectTypes: [
       { id: typeLifeId, name: "生活", sortOrder: 0, createdAt: isoOffset(now, -10), updatedAt: isoOffset(now, -10) },
