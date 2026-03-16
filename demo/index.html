@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>时间账本</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <main class="screen">
+        <section id="homeView" class="view is-active" data-view="home">
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">Time Ledger</p>
+              <h1>时间账本</h1>
+            </div>
+            <button id="seedButton" class="icon-button" type="button">重置</button>
+          </header>
+
+          <label class="search-box">
+            <span class="sr-only">搜索具体项目</span>
+            <input id="projectSearch" type="search" placeholder="搜索具体项目，找不到就直接创建" />
+          </label>
+
+          <section class="panel current-panel">
+            <div class="panel-title-row">
+              <div>
+                <p class="eyebrow">当前任务</p>
+                <h2>本人正在进行</h2>
+              </div>
+            </div>
+            <div id="currentSelfTask"></div>
+            <div class="panel-divider"></div>
+            <div class="panel-title-row compact">
+              <div>
+                <p class="eyebrow">后台并行</p>
+                <h3>Agent 任务</h3>
+              </div>
+            </div>
+            <div id="runningAgentTasks" class="stack-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title-row">
+              <div>
+                <p class="eyebrow">可执行项目</p>
+                <h2>点一下直接开始</h2>
+              </div>
+              <div class="segmented-control">
+                <button id="recentModeButton" class="segment is-active" type="button">最近使用</button>
+                <button id="frequentModeButton" class="segment" type="button">最常使用</button>
+              </div>
+            </div>
+            <div id="projectQuickActions" class="quick-action-bar"></div>
+            <div id="projectList" class="project-list"></div>
+          </section>
+        </section>
+
+        <section id="historyView" class="view" data-view="history">
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">History</p>
+              <h1>历史记录</h1>
+            </div>
+          </header>
+
+          <section class="panel">
+            <div class="panel-title-row">
+              <div>
+                <p class="eyebrow">排序</p>
+                <h2>按你能找得到的方式</h2>
+              </div>
+              <select id="historySort">
+                <option value="desc">时间倒序</option>
+                <option value="asc">时间正序</option>
+                <option value="duration">耗时长短</option>
+              </select>
+            </div>
+            <div id="historyList" class="history-list"></div>
+          </section>
+        </section>
+
+        <section id="dashboardView" class="view" data-view="dashboard">
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">Dashboard</p>
+              <h1>仪表盘</h1>
+            </div>
+          </header>
+
+          <section class="panel">
+            <div class="panel-title-row">
+              <div>
+                <p class="eyebrow">统计周期</p>
+                <h2>日 / 周 / 月</h2>
+              </div>
+            </div>
+            <div id="dashboardMetrics" class="metric-grid"></div>
+            <div class="dashboard-columns">
+              <div>
+                <h3 class="subheading">项目类型分布</h3>
+                <div id="dashboardTypeBreakdown" class="stack-list"></div>
+              </div>
+              <div>
+                <h3 class="subheading">最近 7 天本人投入</h3>
+                <div id="dashboardTrend" class="stack-list"></div>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section id="meView" class="view" data-view="me">
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">Manage</p>
+              <h1>我</h1>
+            </div>
+          </header>
+
+          <section class="panel">
+            <div class="panel-title-row">
+              <div>
+                <p class="eyebrow">项目类型</p>
+                <h2>分类总表</h2>
+              </div>
+            </div>
+
+            <form id="typeForm" class="stack-form">
+              <input id="typeNameInput" type="text" placeholder="新建项目类型，例如：生活 / 工作 / 学习" required />
+              <button id="typeSubmitButton" class="primary-button" type="submit">新增项目类型</button>
+            </form>
+
+            <div id="typeList" class="stack-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title-row">
+              <div>
+                <p class="eyebrow">具体项目</p>
+                <h2>执行对象总表</h2>
+              </div>
+            </div>
+
+            <form id="projectForm" class="stack-form">
+              <select id="projectTypeSelect" required></select>
+              <input id="projectNameInput" type="text" placeholder="新建具体项目，例如：散步 / 产品设计 / 跑训练" required />
+              <select id="projectActorSelect" required>
+                <option value="self">本人</option>
+                <option value="agent">Agent</option>
+              </select>
+              <button id="projectSubmitButton" class="primary-button" type="submit">新增具体项目</button>
+            </form>
+
+            <div id="projectAdminList" class="stack-list"></div>
+          </section>
+        </section>
+      </main>
+
+      <nav class="bottom-nav">
+        <button class="nav-item is-active" data-nav="home" type="button">首页</button>
+        <button class="nav-item" data-nav="history" type="button">历史记录</button>
+        <button class="nav-item" data-nav="dashboard" type="button">仪表盘</button>
+        <button class="nav-item" data-nav="me" type="button">我</button>
+      </nav>
+    </div>
+
+    <template id="metricCardTemplate">
+      <article class="metric-card">
+        <span class="metric-label"></span>
+        <strong class="metric-value"></strong>
+        <p class="metric-note"></p>
+      </article>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
