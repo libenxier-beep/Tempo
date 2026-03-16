@@ -169,15 +169,33 @@ function renderSearchFeedback(filteredProjects, query) {
     return;
   }
 
-  els.searchFeedback.innerHTML = `
-    <span class="pill gray">${filteredProjects.length ? `搜到 ${filteredProjects.length} 个项目` : `没有搜到“${escapeHtml(query)}”`}</span>
-    <button id="clearSearchButton" class="inline-button" type="button">清空</button>
-  `;
+  const directStartButton =
+    filteredProjects.length === 1
+      ? `<button id="startSearchResultButton" class="inline-button" type="button">直接开始</button>`
+      : "";
+
+  els.searchFeedback.innerHTML = filteredProjects.length
+    ? `
+      ${directStartButton}
+      <button id="clearSearchButton" class="inline-button" type="button">清空</button>
+    `
+    : `
+      <span class="pill gray">没有搜到“${escapeHtml(query)}”</span>
+      <button id="clearSearchButton" class="inline-button" type="button">清空</button>
+    `;
+
   els.searchFeedback.querySelector("#clearSearchButton").addEventListener("click", () => {
     uiState.projectSearch = "";
     els.projectSearch.value = "";
     renderHome();
   });
+
+  const startButton = els.searchFeedback.querySelector("#startSearchResultButton");
+  if (startButton) {
+    startButton.addEventListener("click", () => {
+      startProject(filteredProjects[0].id);
+    });
+  }
 }
 
 function renderCurrentSelfTask(session, data) {
@@ -993,6 +1011,14 @@ function startTimer() {
   timerHandle = window.setInterval(() => {
     const data = appStore.get();
     if (getRunningSelfSession(data) || getRunningAgentSessions(data).length) {
+      const activeTag = document.activeElement?.tagName;
+      const isEditingHistory =
+        uiState.currentView === "history" &&
+        uiState.historyExpandedId &&
+        (activeTag === "TEXTAREA" || activeTag === "INPUT");
+      if (isEditingHistory) {
+        return;
+      }
       if (uiState.currentView === "home") {
         renderHome();
       } else if (uiState.currentView === "history") {
