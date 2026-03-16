@@ -249,7 +249,7 @@ function renderRunningAgents(sessions, data) {
 
 function renderProjectList(projects, data) {
   if (!projects.length) {
-    els.projectList.innerHTML = `<div class="empty-state">当前没有匹配项目。下方保留首页轻量快速创建入口。</div>`;
+    els.projectList.innerHTML = `<div class="empty-state">当前没有匹配项目，可以直接在上方搜索区里新建。</div>`;
     return;
   }
 
@@ -1024,7 +1024,16 @@ function startTimer() {
   timerHandle = window.setInterval(() => {
     const data = appStore.get();
     if (getRunningSelfSession(data) || getRunningAgentSessions(data).length) {
-      const activeTag = document.activeElement?.tagName;
+      const activeElement = document.activeElement;
+      const activeTag = activeElement?.tagName;
+      const activeId = activeElement?.id || "";
+      const isEditingHomeSearch =
+        uiState.currentView === "home" &&
+        (activeTag === "INPUT" || activeTag === "SELECT" || activeTag === "TEXTAREA") &&
+        (activeId.startsWith("quickCreate") || activeId === "projectSearch");
+      if (isEditingHomeSearch) {
+        return;
+      }
       const isEditingHistory =
         uiState.currentView === "history" &&
         uiState.historyExpandedId &&

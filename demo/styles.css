@@ -292,6 +292,14 @@ textarea {
   gap: 12px;
 }
 
+.project-list {
+  max-height: min(48vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 4px;
+}
+
 .dashboard-columns {
   margin-top: 14px;
 }
