@@ -55,7 +55,6 @@ const els = {
   toggleArchivedButton: document.querySelector("#toggleArchivedButton"),
   projectAdminList: document.querySelector("#projectAdminList"),
   archivedProjectList: document.querySelector("#archivedProjectList"),
-  seedButton: document.querySelector("#seedButton"),
   recentModeButton: document.querySelector("#recentModeButton"),
   frequentModeButton: document.querySelector("#frequentModeButton"),
   metricCardTemplate: document.querySelector("#metricCardTemplate"),
@@ -151,16 +150,6 @@ function bindEvents() {
   els.toggleArchivedButton.addEventListener("click", () => {
     uiState.showArchivedProjects = !uiState.showArchivedProjects;
     renderManage();
-  });
-  els.seedButton.addEventListener("click", () => {
-    appStore.reset();
-    uiState.historyExpandedId = null;
-    uiState.typeEditId = null;
-    uiState.projectEditId = null;
-    uiState.showArchivedProjects = false;
-    uiState.projectSearch = "";
-    els.projectSearch.value = "";
-    render();
   });
 
   window.addEventListener("online", () => syncNetworkBanner(true));
