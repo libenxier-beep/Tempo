@@ -1,11 +1,15 @@
-const STORAGE_KEY = "time-ledger-mobile-demo-v2";
+const STORAGE_KEY = "time-ledger-mobile-demo-v4";
 
-const state = {
+const uiState = {
   currentView: "home",
   projectSortMode: "recent",
-  historySortMode: "desc",
-  historyExpandedId: null,
   projectSearch: "",
+  historySortMode: "duration",
+  dashboardPeriod: "day",
+  historyExpandedId: null,
+  typeEditId: null,
+  projectEditId: null,
+  showArchivedProjects: false,
 };
 
 const els = {
@@ -13,33 +17,47 @@ const els = {
   navItems: document.querySelectorAll(".nav-item"),
   projectSearch: document.querySelector("#projectSearch"),
   projectList: document.querySelector("#projectList"),
-  projectQuickActions: document.querySelector("#projectQuickActions"),
+  homeEmptyCreate: document.querySelector("#homeEmptyCreate"),
   currentSelfTask: document.querySelector("#currentSelfTask"),
   runningAgentTasks: document.querySelector("#runningAgentTasks"),
   historySort: document.querySelector("#historySort"),
+  historySummary: document.querySelector("#historySummary"),
   historyList: document.querySelector("#historyList"),
   dashboardMetrics: document.querySelector("#dashboardMetrics"),
   dashboardTypeBreakdown: document.querySelector("#dashboardTypeBreakdown"),
   dashboardTrend: document.querySelector("#dashboardTrend"),
+  periodButtons: document.querySelectorAll(".period-segment"),
   typeForm: document.querySelector("#typeForm"),
   typeNameInput: document.querySelector("#typeNameInput"),
   typeSubmitButton: document.querySelector("#typeSubmitButton"),
+  typeConstraintHint: document.querySelector("#typeConstraintHint"),
   typeList: document.querySelector("#typeList"),
   projectForm: document.querySelector("#projectForm"),
   projectTypeSelect: document.querySelector("#projectTypeSelect"),
   projectNameInput: document.querySelector("#projectNameInput"),
   projectActorSelect: document.querySelector("#projectActorSelect"),
   projectSubmitButton: document.querySelector("#projectSubmitButton"),
+  toggleArchivedButton: document.querySelector("#toggleArchivedButton"),
   projectAdminList: document.querySelector("#projectAdminList"),
+  archivedProjectList: document.querySelector("#archivedProjectList"),
   seedButton: document.querySelector("#seedButton"),
   recentModeButton: document.querySelector("#recentModeButton"),
   frequentModeButton: document.querySelector("#frequentModeButton"),
   metricCardTemplate: document.querySelector("#metricCardTemplate"),
 };
 
-let editState = {
-  typeId: null,
-  projectId: null,
+const appStore = {
+  get() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : createSeedData();
+  },
+  save(nextData) {
+    nextData.updatedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+  },
+  reset() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(createSeedData()));
+  },
 };
 
 let timerHandle = null;
@@ -56,34 +74,54 @@ function init() {
 function bindEvents() {
   els.navItems.forEach((button) => {
     button.addEventListener("click", () => {
-      state.currentView = button.dataset.nav;
+      uiState.currentView = button.dataset.nav;
       render();
     });
   });
 
   els.projectSearch.addEventListener("input", (event) => {
-    state.projectSearch = event.target.value.trim();
+    uiState.projectSearch = event.target.value.trim();
     renderHome();
   });
 
-  els.historySort.addEventListener("change", (event) => {
-    state.historySortMode = event.target.value;
-    renderHistory();
-  });
-
   els.recentModeButton.addEventListener("click", () => {
-    state.projectSortMode = "recent";
+    uiState.projectSortMode = "recent";
     renderHome();
   });
 
   els.frequentModeButton.addEventListener("click", () => {
-    state.projectSortMode = "frequent";
+    uiState.projectSortMode = "frequent";
     renderHome();
+  });
+
+  els.historySort.addEventListener("change", (event) => {
+    uiState.historySortMode = event.target.value;
+    renderHistory();
+  });
+
+  els.periodButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      uiState.dashboardPeriod = button.dataset.period;
+      renderDashboard();
+    });
   });
 
   els.typeForm.addEventListener("submit", handleTypeSubmit);
   els.projectForm.addEventListener("submit", handleProjectSubmit);
-  els.seedButton.addEventListener("click", resetSeedData);
+  els.toggleArchivedButton.addEventListener("click", () => {
+    uiState.showArchivedProjects = !uiState.showArchivedProjects;
+    renderManage();
+  });
+  els.seedButton.addEventListener("click", () => {
+    appStore.reset();
+    uiState.historyExpandedId = null;
+    uiState.typeEditId = null;
+    uiState.projectEditId = null;
+    uiState.showArchivedProjects = false;
+    uiState.projectSearch = "";
+    els.projectSearch.value = "";
+    render();
+  });
 }
 
 function render() {
@@ -96,38 +134,32 @@ function render() {
 
 function toggleViews() {
   els.views.forEach((view) => {
-    view.classList.toggle("is-active", view.dataset.view === state.currentView);
+    view.classList.toggle("is-active", view.dataset.view === uiState.currentView);
   });
 
   els.navItems.forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.nav === state.currentView);
+    button.classList.toggle("is-active", button.dataset.nav === uiState.currentView);
   });
 }
 
 function renderHome() {
-  const data = getData();
+  const data = appStore.get();
   const projects = getVisibleProjects(data);
-  const filtered = filterProjects(projects, state.projectSearch);
-  const sorted = sortProjects(filtered, state.projectSortMode);
-  const runningSelf = getRunningSelfSession(data);
-  const runningAgents = getRunningAgentSessions(data);
+  const filtered = filterProjects(projects, uiState.projectSearch);
+  const sorted = sortProjects(filtered, uiState.projectSortMode);
 
-  els.recentModeButton.classList.toggle("is-active", state.projectSortMode === "recent");
-  els.frequentModeButton.classList.toggle("is-active", state.projectSortMode === "frequent");
+  els.recentModeButton.classList.toggle("is-active", uiState.projectSortMode === "recent");
+  els.frequentModeButton.classList.toggle("is-active", uiState.projectSortMode === "frequent");
 
-  renderCurrentSelfTask(runningSelf, data);
-  renderRunningAgents(runningAgents, data);
-  renderProjectQuickActions(data, state.projectSearch);
+  renderCurrentSelfTask(getRunningSelfSession(data), data);
+  renderRunningAgents(getRunningAgentSessions(data), data);
   renderProjectList(sorted, data);
+  renderHomeEmptyCreate(data, filtered, uiState.projectSearch);
 }
 
 function renderCurrentSelfTask(session, data) {
   if (!session) {
-    els.currentSelfTask.innerHTML = `
-      <div class="empty-state">
-        当前没有本人任务在跑。点下方具体项目，立刻开始。
-      </div>
-    `;
+    els.currentSelfTask.innerHTML = `<div class="empty-state">当前无本人任务进行中。</div>`;
     return;
   }
 
@@ -137,21 +169,19 @@ function renderCurrentSelfTask(session, data) {
     <article class="current-task-card">
       <p class="current-task-title">${escapeHtml(project?.name || "未知项目")}</p>
       <p class="current-task-meta">${escapeHtml(type?.name || "未分类")} · 本人 · ${formatDateTime(session.startAt)} 开始</p>
-      <div class="big-timer">${formatDuration(nowMs() - new Date(session.startAt).getTime())}</div>
+      <div class="big-timer">${formatDuration(getSessionDurationMs(session))}</div>
       <div class="action-row">
         <button class="primary-button danger" type="button" data-stop-session="${session.id}">停止当前任务</button>
       </div>
     </article>
   `;
 
-  els.currentSelfTask.querySelector("[data-stop-session]").addEventListener("click", () => {
-    stopSession(session.id);
-  });
+  els.currentSelfTask.querySelector("[data-stop-session]").addEventListener("click", () => stopSession(session.id));
 }
 
 function renderRunningAgents(sessions, data) {
   if (!sessions.length) {
-    els.runningAgentTasks.innerHTML = `<div class="empty-state">当前没有 Agent 任务在跑。</div>`;
+    els.runningAgentTasks.innerHTML = `<div class="empty-state">当前没有进行中的 Agent 任务。</div>`;
     return;
   }
 
@@ -163,7 +193,7 @@ function renderRunningAgents(sessions, data) {
         <article class="agent-card">
           <div>
             <strong>${escapeHtml(project?.name || "未知项目")}</strong>
-            <p class="muted">${escapeHtml(type?.name || "未分类")} · Agent · 已运行 ${formatDuration(nowMs() - new Date(session.startAt).getTime())}</p>
+            <p class="muted">${escapeHtml(type?.name || "未分类")} · Agent · 已运行 ${formatDuration(getSessionDurationMs(session))}</p>
           </div>
           <button class="inline-button" type="button" data-stop-session="${session.id}">停止</button>
         </article>
@@ -176,48 +206,9 @@ function renderRunningAgents(sessions, data) {
   });
 }
 
-function renderProjectQuickActions(data, search) {
-  const query = search.trim();
-  const types = getActiveTypes(data);
-
-  if (!query) {
-    els.projectQuickActions.innerHTML = `
-      <button class="chip" type="button" data-open-create-project="1">新建具体项目</button>
-      <button class="chip" type="button" data-open-manage="1">去“我”页管理分类</button>
-    `;
-  } else {
-    els.projectQuickActions.innerHTML = `
-      <button class="chip" type="button" data-open-create-project="1">创建“${escapeHtml(query)}”</button>
-      <span class="pill gray">${types.length} 个项目类型可选</span>
-    `;
-  }
-
-  const createButton = els.projectQuickActions.querySelector("[data-open-create-project]");
-  if (createButton) {
-    createButton.addEventListener("click", () => {
-      state.currentView = "me";
-      els.projectNameInput.value = query;
-      render();
-      els.projectTypeSelect.focus();
-    });
-  }
-
-  const manageButton = els.projectQuickActions.querySelector("[data-open-manage]");
-  if (manageButton) {
-    manageButton.addEventListener("click", () => {
-      state.currentView = "me";
-      render();
-    });
-  }
-}
-
 function renderProjectList(projects, data) {
   if (!projects.length) {
-    els.projectList.innerHTML = `
-      <div class="empty-state">
-        没找到匹配的具体项目。可以直接去“我”里创建，或者把搜索词当成新项目名。
-      </div>
-    `;
+    els.projectList.innerHTML = `<div class="empty-state">当前没有匹配项目。下方保留首页轻量快速创建入口。</div>`;
     return;
   }
 
@@ -248,27 +239,74 @@ function renderProjectList(projects, data) {
   });
 }
 
-function renderHistory() {
-  const data = getData();
-  const sessions = sortSessions(data.sessions, state.historySortMode);
-
-  if (!sessions.length) {
-    els.historyList.innerHTML = `<div class="empty-state">还没有历史记录，先去首页跑第一条。</div>`;
+function renderHomeEmptyCreate(data, filteredProjects, query) {
+  const types = getActiveTypes(data);
+  if (!query) {
+    els.homeEmptyCreate.innerHTML = `<div class="empty-state">输入项目名后，这里会在搜索无结果时显示首页轻量快速创建入口。</div>`;
     return;
   }
 
-  els.historySort.value = state.historySortMode;
-  els.historyList.innerHTML = sessions
-    .map((session) => renderHistoryCard(session, data))
-    .join("");
+  if (filteredProjects.length) {
+    els.homeEmptyCreate.innerHTML = `<div class="empty-state">已找到匹配项目。完整项目管理仍归“我”页。</div>`;
+    return;
+  }
 
+  if (!types.length) {
+    els.homeEmptyCreate.innerHTML = `<div class="empty-state">当前还没有项目类型，无法在首页快速创建。请先到“我”页维护项目类型。</div>`;
+    return;
+  }
+
+  els.homeEmptyCreate.innerHTML = `
+    <article class="quick-create-card">
+      <div>
+        <p class="project-name">创建“${escapeHtml(query)}”</p>
+        <p class="quick-create-copy">这里只收集最小必要信息：项目名、项目类型、执行主体。</p>
+      </div>
+      <form id="quickCreateForm" class="quick-create-form">
+        <div class="quick-create-grid">
+          <input id="quickCreateName" type="text" value="${escapeHtml(query)}" required />
+          <select id="quickCreateType">${types.map((type) => `<option value="${type.id}">${escapeHtml(type.name)}</option>`).join("")}</select>
+          <select id="quickCreateActor">
+            <option value="self">本人</option>
+            <option value="agent">Agent</option>
+          </select>
+        </div>
+        <div class="quick-create-actions">
+          <button class="primary-button success" type="submit">快速创建并加入首页列表</button>
+        </div>
+      </form>
+    </article>
+  `;
+
+  els.homeEmptyCreate.querySelector("#quickCreateForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    handleQuickCreateSubmit();
+  });
+}
+
+function renderHistory() {
+  const data = appStore.get();
+  const sessions = sortSessions(data.sessions, uiState.historySortMode);
+  els.historySort.value = uiState.historySortMode;
+  const runningCount = data.sessions.filter((session) => !session.endAt).length;
+  els.historySummary.innerHTML = `
+    <span class="pill gray">总记录 ${data.sessions.length}</span>
+    <span class="pill gray">进行中 ${runningCount}</span>
+    <span class="pill gray">已结束 ${data.sessions.length - runningCount}</span>
+  `;
+
+  if (!sessions.length) {
+    els.historyList.innerHTML = `<div class="empty-state">还没有历史记录。</div>`;
+    return;
+  }
+
+  els.historyList.innerHTML = sessions.map((session) => renderHistoryCard(session, data)).join("");
   els.historyList.querySelectorAll("[data-history-toggle]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.historyExpandedId = state.historyExpandedId === button.dataset.historyToggle ? null : button.dataset.historyToggle;
+      uiState.historyExpandedId = uiState.historyExpandedId === button.dataset.historyToggle ? null : button.dataset.historyToggle;
       renderHistory();
     });
   });
-
   els.historyList.querySelectorAll("[data-save-history]").forEach((button) => {
     button.addEventListener("click", () => saveHistoryEdit(button.dataset.saveHistory));
   });
@@ -277,11 +315,8 @@ function renderHistory() {
 function renderHistoryCard(session, data) {
   const project = findProject(data, session.projectId);
   const type = findType(data, project?.typeId);
-  const expanded = state.historyExpandedId === session.id;
-  const durationText = session.endAt
-    ? formatDuration(new Date(session.endAt).getTime() - new Date(session.startAt).getTime())
-    : `进行中 · ${formatDuration(nowMs() - new Date(session.startAt).getTime())}`;
-
+  const expanded = uiState.historyExpandedId === session.id;
+  const durationText = session.endAt ? formatDuration(getSessionDurationMs(session)) : `进行中 · ${formatDuration(getSessionDurationMs(session))}`;
   return `
     <article class="history-card ${expanded ? "expanded" : ""}">
       <button class="history-summary" type="button" data-history-toggle="${session.id}">
@@ -300,7 +335,7 @@ function renderHistoryCard(session, data) {
             <div class="history-edit-grid">
               <input id="history-start-${session.id}" type="datetime-local" value="${toLocalInputValue(session.startAt)}" />
               <input id="history-end-${session.id}" type="datetime-local" value="${session.endAt ? toLocalInputValue(session.endAt) : ""}" />
-              <textarea id="history-note-${session.id}" placeholder="补充备注，记录复盘或思考">${escapeHtml(session.note || "")}</textarea>
+              <textarea id="history-note-${session.id}" placeholder="补充备注">${escapeHtml(session.note || "")}</textarea>
               <button class="primary-button" type="button" data-save-history="${session.id}">保存修改</button>
             </div>
           `
@@ -311,10 +346,15 @@ function renderHistoryCard(session, data) {
 }
 
 function renderDashboard() {
-  const data = getData();
-  const metrics = buildDashboardMetrics(data);
-  const typeBreakdown = buildTypeBreakdown(data);
-  const trend = buildSelfTrend(data);
+  const data = appStore.get();
+  const period = uiState.dashboardPeriod;
+  els.periodButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.period === period);
+  });
+
+  const metrics = buildDashboardMetrics(data, period);
+  const breakdown = buildTypeBreakdown(data, period);
+  const trend = buildTrend(data, period);
 
   els.dashboardMetrics.innerHTML = "";
   metrics.forEach((metric) => {
@@ -325,82 +365,75 @@ function renderDashboard() {
     els.dashboardMetrics.append(node);
   });
 
-  renderTypeBreakdown(typeBreakdown);
-  renderTrend(trend);
-}
+  els.dashboardTypeBreakdown.innerHTML = breakdown.length
+    ? breakdown
+        .map(
+          (item) => `
+            <article class="stack-card">
+              <div class="admin-row">
+                <strong>${escapeHtml(item.name)}</strong>
+                <span class="muted">${formatDuration(item.duration)}</span>
+              </div>
+              <div class="bar-track"><div class="bar" style="width:${item.ratio}%"></div></div>
+            </article>
+          `,
+        )
+        .join("")
+    : `<div class="empty-state">当前周期没有可展示的数据。</div>`;
 
-function renderTypeBreakdown(rows) {
-  if (!rows.length) {
-    els.dashboardTypeBreakdown.innerHTML = `<div class="empty-state">暂无统计数据。</div>`;
-    return;
-  }
-
-  els.dashboardTypeBreakdown.innerHTML = rows
-    .map(
-      (row) => `
-        <article class="stack-card">
-          <div class="admin-row">
-            <strong>${escapeHtml(row.name)}</strong>
-            <span class="muted">${formatDuration(row.duration)}</span>
-          </div>
-          <div class="bar-track"><div class="bar" style="width:${row.ratio}%"></div></div>
-        </article>
-      `,
-    )
-    .join("");
-}
-
-function renderTrend(rows) {
-  els.dashboardTrend.innerHTML = rows
-    .map(
-      (row) => `
-        <article class="stack-card">
-          <div class="admin-row">
-            <strong>${row.label}</strong>
-            <span class="muted">${formatDuration(row.duration)}</span>
-          </div>
-          <div class="bar-track"><div class="bar" style="width:${row.ratio}%"></div></div>
-        </article>
-      `,
-    )
-    .join("");
+  els.dashboardTrend.innerHTML = trend.length
+    ? trend
+        .map(
+          (item) => `
+            <article class="stack-card">
+              <div class="admin-row">
+                <strong>${item.label}</strong>
+                <span class="muted">${formatDuration(item.duration)}</span>
+              </div>
+              <div class="bar-track"><div class="bar" style="width:${item.ratio}%"></div></div>
+            </article>
+          `,
+        )
+        .join("")
+    : `<div class="empty-state">当前周期没有趋势数据。</div>`;
 }
 
 function renderManage() {
-  const data = getData();
+  const data = appStore.get();
   renderTypeSelectOptions(data);
   renderTypeList(data);
-  renderProjectAdminList(data);
-  updateManageButtons();
+  renderProjectLists(data);
+  updateManageForms();
 }
 
 function renderTypeSelectOptions(data) {
-  const activeTypes = getActiveTypes(data);
-  els.projectTypeSelect.innerHTML = activeTypes.length
-    ? activeTypes.map((type) => `<option value="${type.id}">${escapeHtml(type.name)}</option>`).join("")
+  const types = getActiveTypes(data);
+  els.projectTypeSelect.innerHTML = types.length
+    ? types.map((type) => `<option value="${type.id}">${escapeHtml(type.name)}</option>`).join("")
     : `<option value="">请先创建项目类型</option>`;
 }
 
 function renderTypeList(data) {
-  const types = [...data.projectTypes].sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
-  if (!types.length) {
+  if (!data.projectTypes.length) {
     els.typeList.innerHTML = `<div class="empty-state">还没有项目类型，先建一层骨架。</div>`;
     return;
   }
 
-  els.typeList.innerHTML = types
+  els.typeList.innerHTML = data.projectTypes
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((type) => {
-      const count = data.projects.filter((project) => project.typeId === type.id).length;
+      const related = data.projects.filter((project) => project.typeId === type.id).length;
       return `
         <article class="stack-card">
           <div class="admin-row">
             <div>
               <strong>${escapeHtml(type.name)}</strong>
-              <p class="muted">${count} 个具体项目</p>
+              <p class="muted">${related} 个具体项目</p>
             </div>
             <div class="admin-actions">
               <button class="inline-button" type="button" data-edit-type="${type.id}">编辑</button>
-              <button class="inline-button" type="button" data-delete-type="${type.id}">删除</button>
+              <button class="inline-button warning" type="button" data-delete-type="${type.id}">删除</button>
             </div>
           </div>
         </article>
@@ -409,7 +442,16 @@ function renderTypeList(data) {
     .join("");
 
   els.typeList.querySelectorAll("[data-edit-type]").forEach((button) => {
-    button.addEventListener("click", () => startTypeEdit(button.dataset.editType));
+    button.addEventListener("click", () => {
+      const dataNow = appStore.get();
+      const type = findType(dataNow, button.dataset.editType);
+      if (!type) {
+        return;
+      }
+      uiState.typeEditId = type.id;
+      els.typeNameInput.value = type.name;
+      updateManageForms();
+    });
   });
 
   els.typeList.querySelectorAll("[data-delete-type]").forEach((button) => {
@@ -417,76 +459,99 @@ function renderTypeList(data) {
   });
 }
 
-function renderProjectAdminList(data) {
-  const projects = [...data.projects].sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
-  if (!projects.length) {
-    els.projectAdminList.innerHTML = `<div class="empty-state">还没有具体项目，建完就能去首页直接开跑。</div>`;
-    return;
-  }
+function renderProjectLists(data) {
+  const activeProjects = data.projects.filter((project) => !project.archived);
+  const archivedProjects = data.projects.filter((project) => project.archived);
 
-  els.projectAdminList.innerHTML = projects
-    .map((project) => {
-      const type = findType(data, project.typeId);
-      return `
-        <article class="stack-card ${project.archived ? "is-archived" : ""}">
-          <div class="admin-row">
-            <div>
-              <strong>${escapeHtml(project.name)}</strong>
-              <p class="muted">${escapeHtml(type?.name || "未分类")} · ${project.actor === "self" ? "本人" : "Agent"} · ${project.archived ? "已归档" : "可用"}</p>
-            </div>
-            <div class="admin-actions">
-              <button class="inline-button" type="button" data-edit-project="${project.id}">编辑</button>
-              <button class="inline-button" type="button" data-delete-project="${project.id}">${project.archived ? "已归档" : "归档"}</button>
-            </div>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
+  els.projectAdminList.innerHTML = activeProjects.length
+    ? activeProjects
+        .map((project) => renderProjectAdminCard(project, data, false))
+        .join("")
+    : `<div class="empty-state">还没有活跃具体项目。</div>`;
 
-  els.projectAdminList.querySelectorAll("[data-edit-project]").forEach((button) => {
-    button.addEventListener("click", () => startProjectEdit(button.dataset.editProject));
+  els.archivedProjectList.classList.toggle("hidden", !uiState.showArchivedProjects);
+  els.toggleArchivedButton.textContent = uiState.showArchivedProjects ? "收起已归档项目" : "查看已归档项目";
+  els.archivedProjectList.innerHTML = archivedProjects.length
+    ? archivedProjects
+        .map((project) => renderProjectAdminCard(project, data, true))
+        .join("")
+    : `<div class="empty-state">还没有归档项目。</div>`;
+
+  document.querySelectorAll("[data-edit-project]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const dataNow = appStore.get();
+      const project = findProject(dataNow, button.dataset.editProject);
+      if (!project) {
+        return;
+      }
+      uiState.projectEditId = project.id;
+      els.projectNameInput.value = project.name;
+      els.projectActorSelect.value = project.actor;
+      els.projectTypeSelect.value = project.typeId;
+      updateManageForms();
+    });
   });
 
-  els.projectAdminList.querySelectorAll("[data-delete-project]").forEach((button) => {
-    button.addEventListener("click", () => archiveProject(button.dataset.deleteProject));
+  document.querySelectorAll("[data-archive-project]").forEach((button) => {
+    button.addEventListener("click", () => archiveProject(button.dataset.archiveProject));
   });
 }
 
-function updateManageButtons() {
-  els.typeSubmitButton.textContent = editState.typeId ? "保存项目类型" : "新增项目类型";
-  els.projectSubmitButton.textContent = editState.projectId ? "保存具体项目" : "新增具体项目";
+function renderProjectAdminCard(project, data, archived) {
+  const type = findType(data, project.typeId);
+  return `
+    <article class="stack-card">
+      <div class="admin-row">
+        <div>
+          <strong>${escapeHtml(project.name)}</strong>
+          <p class="muted">${escapeHtml(type?.name || "未分类")} · ${project.actor === "self" ? "本人" : "Agent"} · ${archived ? "已归档" : "活跃"}</p>
+        </div>
+        <div class="admin-actions">
+          ${archived ? "" : `<button class="inline-button" type="button" data-edit-project="${project.id}">编辑</button>`}
+          ${archived ? "" : `<button class="inline-button warning" type="button" data-archive-project="${project.id}">归档</button>`}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function updateManageForms() {
+  els.typeSubmitButton.textContent = uiState.typeEditId ? "保存项目类型" : "新增项目类型";
+  els.projectSubmitButton.textContent = uiState.projectEditId ? "保存具体项目" : "新增具体项目";
 }
 
 function handleTypeSubmit(event) {
   event.preventDefault();
   const name = els.typeNameInput.value.trim();
-
   if (!name) {
     return;
   }
 
-  const data = getData();
-  const duplicate = data.projectTypes.find((type) => type.name === name && type.id !== editState.typeId);
+  const data = appStore.get();
+  const duplicate = data.projectTypes.find((type) => type.name === name && type.id !== uiState.typeEditId);
   if (duplicate) {
-    window.alert("这个项目类型已经存在。");
+    els.typeConstraintHint.textContent = "这个项目类型已经存在。";
     return;
   }
 
-  if (editState.typeId) {
-    data.projectTypes = data.projectTypes.map((type) => (type.id === editState.typeId ? { ...type, name } : type));
-    editState.typeId = null;
+  els.typeConstraintHint.textContent = "";
+  const now = new Date().toISOString();
+  if (uiState.typeEditId) {
+    data.projectTypes = data.projectTypes.map((type) => (type.id === uiState.typeEditId ? { ...type, name, updatedAt: now } : type));
+    uiState.typeEditId = null;
   } else {
-    data.projectTypes.unshift({
+    data.projectTypes.push({
       id: crypto.randomUUID(),
       name,
-      createdAt: nowMs(),
+      sortOrder: data.projectTypes.length,
+      createdAt: now,
+      updatedAt: now,
     });
   }
 
-  saveData(data);
+  appStore.save(data);
   els.typeForm.reset();
-  render();
+  renderManage();
 }
 
 function handleProjectSubmit(event) {
@@ -494,111 +559,117 @@ function handleProjectSubmit(event) {
   const name = els.projectNameInput.value.trim();
   const typeId = els.projectTypeSelect.value;
   const actor = els.projectActorSelect.value;
-  const data = getData();
-
-  if (!name || !typeId) {
+  if (!name || !typeId || !actor) {
     return;
   }
 
-  const duplicate = data.projects.find((project) => project.name === name && project.id !== editState.projectId && !project.archived);
+  const data = appStore.get();
+  const duplicate = data.projects.find(
+    (project) => !project.archived && project.typeId === typeId && project.name === name && project.id !== uiState.projectEditId,
+  );
   if (duplicate) {
-    window.alert("这个具体项目已经存在。");
+    window.alert("同一项目类型下已经有这个具体项目。");
     return;
   }
 
-  if (editState.projectId) {
+  const now = new Date().toISOString();
+  if (uiState.projectEditId) {
     data.projects = data.projects.map((project) =>
-      project.id === editState.projectId
-        ? {
-            ...project,
-            name,
-            typeId,
-            actor,
-          }
-        : project,
+      project.id === uiState.projectEditId ? { ...project, name, typeId, actor, updatedAt: now } : project,
     );
-    editState.projectId = null;
+    uiState.projectEditId = null;
   } else {
     data.projects.unshift({
       id: crypto.randomUUID(),
-      name,
       typeId,
+      name,
       actor,
       archived: false,
+      archivedAt: null,
       usageCount: 0,
       lastUsedAt: null,
-      createdAt: nowMs(),
+      sortOrder: data.projects.length,
+      createdAt: now,
+      updatedAt: now,
     });
   }
 
-  saveData(data);
+  appStore.save(data);
   els.projectForm.reset();
-  render();
-}
-
-function startTypeEdit(typeId) {
-  const data = getData();
-  const type = findType(data, typeId);
-  if (!type) {
-    return;
+  renderManage();
+  if (uiState.currentView === "home") {
+    renderHome();
   }
-
-  editState.typeId = typeId;
-  els.typeNameInput.value = type.name;
-  updateManageButtons();
-  state.currentView = "me";
-  render();
-}
-
-function startProjectEdit(projectId) {
-  const data = getData();
-  const project = findProject(data, projectId);
-  if (!project) {
-    return;
-  }
-
-  editState.projectId = projectId;
-  els.projectNameInput.value = project.name;
-  els.projectTypeSelect.value = project.typeId;
-  els.projectActorSelect.value = project.actor;
-  updateManageButtons();
-  state.currentView = "me";
-  render();
 }
 
 function deleteType(typeId) {
-  const data = getData();
+  const data = appStore.get();
   const relatedProjects = data.projects.filter((project) => project.typeId === typeId);
   if (relatedProjects.length) {
-    window.alert("这个项目类型下面还有具体项目，先处理具体项目再删。");
+    els.typeConstraintHint.textContent = "删除受限：这个项目类型下面还有具体项目，先处理具体项目再删。";
     return;
   }
 
   data.projectTypes = data.projectTypes.filter((type) => type.id !== typeId);
-  saveData(data);
-  render();
+  appStore.save(data);
+  renderManage();
 }
 
 function archiveProject(projectId) {
-  const data = getData();
-  const project = findProject(data, projectId);
-  if (!project || project.archived) {
+  const data = appStore.get();
+  const running = data.sessions.find((session) => session.projectId === projectId && !session.endAt);
+  if (running) {
+    window.alert("这个项目还有进行中的任务，先停止再归档。");
     return;
   }
 
-  const runningSession = data.sessions.find((session) => session.projectId === projectId && !session.endAt);
-  if (runningSession) {
-    window.alert("这个项目还在运行，先停掉再归档。");
+  const now = new Date().toISOString();
+  data.projects = data.projects.map((project) =>
+    project.id === projectId ? { ...project, archived: true, archivedAt: now, updatedAt: now } : project,
+  );
+  appStore.save(data);
+  render();
+}
+
+function handleQuickCreateSubmit() {
+  const name = document.querySelector("#quickCreateName").value.trim();
+  const typeId = document.querySelector("#quickCreateType").value;
+  const actor = document.querySelector("#quickCreateActor").value;
+  if (!name || !typeId || !actor) {
     return;
   }
 
-  data.projects = data.projects.map((item) => (item.id === projectId ? { ...item, archived: true } : item));
-  saveData(data);
+  const data = appStore.get();
+  const duplicate = data.projects.find(
+    (project) => !project.archived && project.typeId === typeId && project.name.toLowerCase() === name.toLowerCase(),
+  );
+  if (duplicate) {
+    window.alert("同一项目类型下已经有这个具体项目。");
+    return;
+  }
+
+  const now = new Date().toISOString();
+  data.projects.unshift({
+    id: crypto.randomUUID(),
+    typeId,
+    name,
+    actor,
+    archived: false,
+    archivedAt: null,
+    usageCount: 0,
+    lastUsedAt: null,
+    sortOrder: data.projects.length,
+    createdAt: now,
+    updatedAt: now,
+  });
+  appStore.save(data);
+  uiState.projectSearch = "";
+  els.projectSearch.value = "";
   render();
 }
 
 function startProject(projectId) {
-  const data = getData();
+  const data = appStore.get();
   const project = findProject(data, projectId);
   if (!project || project.archived) {
     return;
@@ -609,7 +680,7 @@ function startProject(projectId) {
     data.sessions = data.sessions.map((session) => {
       const sessionProject = findProject(data, session.projectId);
       if (!session.endAt && sessionProject?.actor === "self") {
-        return { ...session, endAt: now };
+        return { ...session, endAt: now, durationMs: new Date(now).getTime() - new Date(session.startAt).getTime(), updatedAt: now };
       }
       return session;
     });
@@ -621,62 +692,79 @@ function startProject(projectId) {
     startAt: now,
     endAt: null,
     note: "",
-    createdAt: nowMs(),
+    durationMs: null,
+    createdAt: now,
+    updatedAt: now,
   });
 
   data.projects = data.projects.map((item) =>
-    item.id === projectId
-      ? {
-          ...item,
-          usageCount: (item.usageCount || 0) + 1,
-          lastUsedAt: now,
-        }
-      : item,
+    item.id === projectId ? { ...item, usageCount: (item.usageCount || 0) + 1, lastUsedAt: now, updatedAt: now } : item,
   );
 
-  saveData(data);
-  state.currentView = "home";
+  appStore.save(data);
+  uiState.currentView = "home";
   render();
 }
 
 function stopSession(sessionId) {
-  const data = getData();
+  const data = appStore.get();
   const now = new Date().toISOString();
-  data.sessions = data.sessions.map((session) => (session.id === sessionId && !session.endAt ? { ...session, endAt: now } : session));
-  saveData(data);
+  data.sessions = data.sessions.map((session) =>
+    session.id === sessionId && !session.endAt
+      ? { ...session, endAt: now, durationMs: new Date(now).getTime() - new Date(session.startAt).getTime(), updatedAt: now }
+      : session,
+  );
+  appStore.save(data);
   render();
 }
 
 function saveHistoryEdit(sessionId) {
-  const startAtValue = document.querySelector(`#history-start-${CSS.escape(sessionId)}`).value;
-  const endAtValue = document.querySelector(`#history-end-${CSS.escape(sessionId)}`).value;
-  const note = document.querySelector(`#history-note-${CSS.escape(sessionId)}`).value.trim();
-
-  if (!startAtValue) {
-    window.alert("开始时间不能为空。");
+  const startInput = document.querySelector(`#history-start-${CSS.escape(sessionId)}`);
+  const endInput = document.querySelector(`#history-end-${CSS.escape(sessionId)}`);
+  const noteInput = document.querySelector(`#history-note-${CSS.escape(sessionId)}`);
+  if (!startInput || !endInput || !noteInput) {
     return;
   }
 
-  const startAt = new Date(startAtValue).toISOString();
-  const endAt = endAtValue ? new Date(endAtValue).toISOString() : null;
+  const startAt = new Date(startInput.value).toISOString();
+  const endAt = endInput.value ? new Date(endInput.value).toISOString() : null;
   if (endAt && new Date(endAt).getTime() < new Date(startAt).getTime()) {
     window.alert("结束时间不能早于开始时间。");
     return;
   }
+  if (endAt && new Date(endAt).getTime() > Date.now()) {
+    window.alert("第一版不允许保存未来结束时间。");
+    return;
+  }
 
-  const data = getData();
+  const data = appStore.get();
+  const target = data.sessions.find((session) => session.id === sessionId);
+  if (!target) {
+    return;
+  }
+  const targetProject = findProject(data, target.projectId);
+  if (targetProject?.actor === "self" && !endAt) {
+    const otherRunningSelf = data.sessions.find((session) => session.id !== sessionId && !session.endAt && findProject(data, session.projectId)?.actor === "self");
+    if (otherRunningSelf) {
+      window.alert("不能制造多个进行中的本人任务。");
+      return;
+    }
+  }
+
+  const now = new Date().toISOString();
   data.sessions = data.sessions.map((session) =>
     session.id === sessionId
       ? {
           ...session,
           startAt,
           endAt,
-          note,
+          note: noteInput.value.trim(),
+          durationMs: endAt ? new Date(endAt).getTime() - new Date(startAt).getTime() : null,
+          updatedAt: now,
         }
       : session,
   );
-
-  saveData(data);
+  appStore.save(data);
   render();
 }
 
@@ -693,127 +781,103 @@ function sortSessions(sessions, mode) {
   if (mode === "asc") {
     return sorted.sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
   }
-  if (mode === "duration") {
-    return sorted.sort((a, b) => getSessionDurationMs(b) - getSessionDurationMs(a));
+  if (mode === "desc") {
+    return sorted.sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
   }
-  return sorted.sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
+  return sorted.sort((a, b) => getSessionDurationMs(b) - getSessionDurationMs(a));
 }
 
-function buildDashboardMetrics(data) {
-  const sessions = data.sessions.filter((session) => session.endAt);
-  const selfSessions = sessions.filter((session) => findProject(data, session.projectId)?.actor === "self");
-  const agentSessions = sessions.filter((session) => findProject(data, session.projectId)?.actor === "agent");
-  const today = dateKey(new Date());
-  const weekStart = startOfWeek(new Date());
-  const monthStart = startOfMonth(new Date());
-
-  const todaySelf = selfSessions.filter((session) => dateKey(new Date(session.startAt)) === today);
-  const weekSelf = selfSessions.filter((session) => new Date(session.startAt) >= weekStart);
-  const monthSelf = selfSessions.filter((session) => new Date(session.startAt) >= monthStart);
-
+function buildDashboardMetrics(data, period) {
+  const scoped = getSessionsForPeriod(data, period);
+  const selfSessions = scoped.filter((session) => findProject(data, session.projectId)?.actor === "self");
+  const agentSessions = scoped.filter((session) => findProject(data, session.projectId)?.actor === "agent");
   return [
-    { label: "今日本人投入", value: formatDuration(sumDurations(todaySelf)), note: "只统计执行主体为本人。" },
-    { label: "本周本人投入", value: formatDuration(sumDurations(weekSelf)), note: "看你这一周到底花去哪了。" },
-    { label: "本月本人投入", value: formatDuration(sumDurations(monthSelf)), note: "月度时间账本总量。" },
-    { label: "累计 Agent 耗时", value: formatDuration(sumDurations(agentSessions)), note: "并行推进，但不算你本人时间。" },
+    { label: "当前周期本人投入", value: formatDuration(sumDurations(selfSessions)), note: "只统计已结束或当前进行中的本人任务。" },
+    { label: "当前周期 Agent 耗时", value: formatDuration(sumDurations(agentSessions)), note: "独立于本人时间展示。" },
+    { label: "当前周期记录数", value: `${scoped.length}`, note: "当前周期内的全部任务记录数。" },
+    { label: "当前周期进行中", value: `${scoped.filter((session) => !session.endAt).length}`, note: "尚未结束的记录。" },
   ];
 }
 
-function buildTypeBreakdown(data) {
-  const selfSessions = data.sessions.filter((session) => session.endAt && findProject(data, session.projectId)?.actor === "self");
-  const durationByType = new Map();
-  selfSessions.forEach((session) => {
+function buildTypeBreakdown(data, period) {
+  const scoped = getSessionsForPeriod(data, period);
+  const totals = new Map();
+  scoped.forEach((session) => {
     const project = findProject(data, session.projectId);
     const type = findType(data, project?.typeId);
     const key = type?.name || "未分类";
-    durationByType.set(key, (durationByType.get(key) || 0) + getSessionDurationMs(session));
+    totals.set(key, (totals.get(key) || 0) + getSessionDurationMs(session));
   });
-
-  const total = [...durationByType.values()].reduce((sum, value) => sum + value, 0) || 1;
-  return [...durationByType.entries()]
-    .map(([name, duration]) => ({ name, duration, ratio: Math.round((duration / total) * 100) }))
+  const totalDuration = [...totals.values()].reduce((sum, value) => sum + value, 0) || 1;
+  return [...totals.entries()]
+    .map(([name, duration]) => ({ name, duration, ratio: Math.round((duration / totalDuration) * 100) }))
     .sort((a, b) => b.duration - a.duration);
 }
 
-function buildSelfTrend(data) {
-  const labels = getPastDays(7);
-  const totals = labels.map((date) => {
-    const duration = sumDurations(
-      data.sessions.filter((session) => {
-        const project = findProject(data, session.projectId);
-        return session.endAt && project?.actor === "self" && dateKey(new Date(session.startAt)) === date;
-      }),
-    );
-    return { label: formatMonthDay(date), duration };
+function buildTrend(data, period) {
+  const buckets = getTrendBuckets(period);
+  const results = buckets.map((bucket) => {
+    const duration = data.sessions.reduce((sum, session) => {
+      return isSessionInBucket(session, bucket) ? sum + getSessionDurationMs(session) : sum;
+    }, 0);
+    return { label: bucket.label, duration };
   });
-
-  const max = Math.max(...totals.map((item) => item.duration), 1);
-  return totals.map((item) => ({ ...item, ratio: Math.round((item.duration / max) * 100) }));
+  const max = Math.max(...results.map((item) => item.duration), 1);
+  return results.map((item) => ({ ...item, ratio: Math.round((item.duration / max) * 100) }));
 }
 
-function resetSeedData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(createSeedData()));
-  editState = { typeId: null, projectId: null };
-  state.projectSearch = "";
-  state.projectSortMode = "recent";
-  state.historySortMode = "desc";
-  state.currentView = "home";
-  render();
-}
-
-function getData() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  return raw ? JSON.parse(raw) : createSeedData();
-}
-
-function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-function ensureSeedData() {
-  if (!localStorage.getItem(STORAGE_KEY)) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(createSeedData()));
-  }
-}
-
-function createSeedData() {
-  const typeLifeId = crypto.randomUUID();
-  const typeWorkId = crypto.randomUUID();
-  const typeLearnId = crypto.randomUUID();
-  const selfWalkId = crypto.randomUUID();
-  const selfReadingId = crypto.randomUUID();
-  const selfDesignId = crypto.randomUUID();
-  const agentTrainId = crypto.randomUUID();
-  const agentExportId = crypto.randomUUID();
-
+function getSessionsForPeriod(data, period) {
   const now = new Date();
-  const hour = 60 * 60 * 1000;
+  return data.sessions.filter((session) => {
+    const start = new Date(session.startAt);
+    if (period === "day") {
+      return dateKey(start) === dateKey(now);
+    }
+    if (period === "week") {
+      return start >= startOfWeek(now);
+    }
+    return start >= startOfMonth(now);
+  });
+}
 
-  return {
-    projectTypes: [
-      { id: typeLifeId, name: "生活", createdAt: nowMs() - 10 * hour },
-      { id: typeWorkId, name: "工作", createdAt: nowMs() - 9 * hour },
-      { id: typeLearnId, name: "学习", createdAt: nowMs() - 8 * hour },
-    ],
-    projects: [
-      { id: selfWalkId, name: "散步", typeId: typeLifeId, actor: "self", archived: false, usageCount: 6, lastUsedAt: isoOffset(-3 * hour), createdAt: nowMs() - 7 * hour },
-      { id: selfReadingId, name: "阅读", typeId: typeLearnId, actor: "self", archived: false, usageCount: 11, lastUsedAt: isoOffset(-20 * hour), createdAt: nowMs() - 6 * hour },
-      { id: selfDesignId, name: "产品设计", typeId: typeWorkId, actor: "self", archived: false, usageCount: 9, lastUsedAt: isoOffset(-26 * hour), createdAt: nowMs() - 5 * hour },
-      { id: agentTrainId, name: "跑训练", typeId: typeWorkId, actor: "agent", archived: false, usageCount: 8, lastUsedAt: isoOffset(-4 * hour), createdAt: nowMs() - 4 * hour },
-      { id: agentExportId, name: "批量导出", typeId: typeWorkId, actor: "agent", archived: false, usageCount: 4, lastUsedAt: isoOffset(-52 * hour), createdAt: nowMs() - 3 * hour },
-    ],
-    sessions: [
-      { id: crypto.randomUUID(), projectId: selfWalkId, startAt: isoOffset(-3 * hour), endAt: isoOffset(-2.5 * hour), note: "走了一圈，脑子清了一点。", createdAt: nowMs() - 3 * hour },
-      { id: crypto.randomUUID(), projectId: agentTrainId, startAt: isoOffset(-4 * hour), endAt: isoOffset(-2 * hour), note: "模型训练一版，后续看日志。", createdAt: nowMs() - 4 * hour },
-      { id: crypto.randomUUID(), projectId: selfReadingId, startAt: isoOffset(-26 * hour), endAt: isoOffset(-25.25 * hour), note: "读了一章，标了几个点。", createdAt: nowMs() - 26 * hour },
-      { id: crypto.randomUUID(), projectId: selfDesignId, startAt: isoOffset(-50 * hour), endAt: isoOffset(-48.5 * hour), note: "整理了首页最小闭环。", createdAt: nowMs() - 50 * hour },
-      { id: crypto.randomUUID(), projectId: agentExportId, startAt: isoOffset(-52 * hour), endAt: isoOffset(-51.2 * hour), note: "导出样本做比对。", createdAt: nowMs() - 52 * hour },
-    ],
-  };
+function getTrendBuckets(period) {
+  const now = new Date();
+  if (period === "day") {
+    return [
+      { label: "00-06", start: setTodayHour(0), end: setTodayHour(6) },
+      { label: "06-12", start: setTodayHour(6), end: setTodayHour(12) },
+      { label: "12-18", start: setTodayHour(12), end: setTodayHour(18) },
+      { label: "18-24", start: setTodayHour(18), end: setTodayHour(24) },
+    ];
+  }
+  if (period === "week") {
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(now);
+      date.setDate(now.getDate() - (6 - index));
+      const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      return { label: `${date.getMonth() + 1}/${date.getDate()}`, start: dayStart, end: new Date(dayStart.getTime() + 24 * 60 * 60 * 1000) };
+    });
+  }
+  return Array.from({ length: 4 }, (_, index) => {
+    const end = new Date(now);
+    end.setDate(now.getDate() - index * 7);
+    const start = new Date(end);
+    start.setDate(end.getDate() - 7);
+    return { label: `近第 ${4 - index} 周`, start, end };
+  }).reverse();
+}
+
+function isSessionInBucket(session, bucket) {
+  const start = new Date(session.startAt);
+  return start >= bucket.start && start < bucket.end;
 }
 
 function getVisibleProjects(data) {
   return data.projects.filter((project) => !project.archived);
+}
+
+function getActiveTypes(data) {
+  return data.projectTypes;
 }
 
 function filterProjects(projects, query) {
@@ -831,10 +895,6 @@ function getRunningAgentSessions(data) {
   return data.sessions.filter((session) => !session.endAt && findProject(data, session.projectId)?.actor === "agent");
 }
 
-function getActiveTypes(data) {
-  return data.projectTypes;
-}
-
 function findProject(data, projectId) {
   return data.projects.find((project) => project.id === projectId);
 }
@@ -843,12 +903,11 @@ function findType(data, typeId) {
   return data.projectTypes.find((type) => type.id === typeId);
 }
 
-function compareDateDesc(a, b) {
-  return new Date(b || 0).getTime() - new Date(a || 0).getTime();
-}
-
 function getSessionDurationMs(session) {
-  const end = session.endAt ? new Date(session.endAt).getTime() : nowMs();
+  if (session.durationMs != null && session.endAt) {
+    return session.durationMs;
+  }
+  const end = session.endAt ? new Date(session.endAt).getTime() : Date.now();
   return Math.max(0, end - new Date(session.startAt).getTime());
 }
 
@@ -856,27 +915,71 @@ function sumDurations(sessions) {
   return sessions.reduce((sum, session) => sum + getSessionDurationMs(session), 0);
 }
 
+function compareDateDesc(a, b) {
+  return new Date(b || 0).getTime() - new Date(a || 0).getTime();
+}
+
 function startTimer() {
   clearInterval(timerHandle);
   timerHandle = window.setInterval(() => {
-    const data = getData();
+    const data = appStore.get();
     if (getRunningSelfSession(data) || getRunningAgentSessions(data).length) {
-      if (state.currentView === "home") {
+      if (uiState.currentView === "home") {
         renderHome();
-      }
-      if (state.currentView === "history") {
+      } else if (uiState.currentView === "history") {
         renderHistory();
+      } else if (uiState.currentView === "dashboard") {
+        renderDashboard();
       }
     }
   }, 1000);
 }
 
-function nowMs() {
-  return Date.now();
+function ensureSeedData() {
+  if (!localStorage.getItem(STORAGE_KEY)) {
+    appStore.reset();
+  }
 }
 
-function isoOffset(offsetMs) {
-  return new Date(nowMs() + offsetMs).toISOString();
+function createSeedData() {
+  const now = Date.now();
+  const typeLifeId = crypto.randomUUID();
+  const typeWorkId = crypto.randomUUID();
+  const typeLearnId = crypto.randomUUID();
+  const selfWalkId = crypto.randomUUID();
+  const selfReadingId = crypto.randomUUID();
+  const selfDesignId = crypto.randomUUID();
+  const agentTrainId = crypto.randomUUID();
+  const agentExportId = crypto.randomUUID();
+  const currentIso = new Date(now).toISOString();
+
+  return {
+    version: 1,
+    updatedAt: currentIso,
+    projectTypes: [
+      { id: typeLifeId, name: "生活", sortOrder: 0, createdAt: isoOffset(now, -10), updatedAt: isoOffset(now, -10) },
+      { id: typeWorkId, name: "工作", sortOrder: 1, createdAt: isoOffset(now, -9), updatedAt: isoOffset(now, -9) },
+      { id: typeLearnId, name: "学习", sortOrder: 2, createdAt: isoOffset(now, -8), updatedAt: isoOffset(now, -8) },
+    ],
+    projects: [
+      { id: selfWalkId, name: "散步", typeId: typeLifeId, actor: "self", archived: false, archivedAt: null, usageCount: 6, lastUsedAt: isoOffset(now, -3), sortOrder: 0, createdAt: isoOffset(now, -7), updatedAt: isoOffset(now, -3) },
+      { id: selfReadingId, name: "阅读", typeId: typeLearnId, actor: "self", archived: false, archivedAt: null, usageCount: 11, lastUsedAt: isoOffset(now, -20), sortOrder: 1, createdAt: isoOffset(now, -6), updatedAt: isoOffset(now, -20) },
+      { id: selfDesignId, name: "产品设计", typeId: typeWorkId, actor: "self", archived: false, archivedAt: null, usageCount: 9, lastUsedAt: isoOffset(now, -26), sortOrder: 2, createdAt: isoOffset(now, -5), updatedAt: isoOffset(now, -26) },
+      { id: agentTrainId, name: "跑训练", typeId: typeWorkId, actor: "agent", archived: false, archivedAt: null, usageCount: 8, lastUsedAt: isoOffset(now, -4), sortOrder: 3, createdAt: isoOffset(now, -4), updatedAt: isoOffset(now, -4) },
+      { id: agentExportId, name: "批量导出", typeId: typeWorkId, actor: "agent", archived: true, archivedAt: isoOffset(now, -12), usageCount: 4, lastUsedAt: isoOffset(now, -52), sortOrder: 4, createdAt: isoOffset(now, -3), updatedAt: isoOffset(now, -12) },
+    ],
+    sessions: [
+      { id: crypto.randomUUID(), projectId: selfWalkId, startAt: isoOffset(now, -3), endAt: isoOffset(now, -2.5), note: "走了一圈，脑子清了一点。", durationMs: 30 * 60 * 1000, createdAt: isoOffset(now, -3), updatedAt: isoOffset(now, -2.5) },
+      { id: crypto.randomUUID(), projectId: agentTrainId, startAt: isoOffset(now, -1.5), endAt: null, note: "", durationMs: null, createdAt: isoOffset(now, -1.5), updatedAt: isoOffset(now, -1.5) },
+      { id: crypto.randomUUID(), projectId: selfReadingId, startAt: isoOffset(now, -26), endAt: isoOffset(now, -25.25), note: "读了一章，标了几个点。", durationMs: 45 * 60 * 1000, createdAt: isoOffset(now, -26), updatedAt: isoOffset(now, -25.25) },
+      { id: crypto.randomUUID(), projectId: selfDesignId, startAt: isoOffset(now, -0.66), endAt: null, note: "", durationMs: null, createdAt: isoOffset(now, -0.66), updatedAt: isoOffset(now, -0.66) },
+      { id: crypto.randomUUID(), projectId: agentExportId, startAt: isoOffset(now, -52), endAt: isoOffset(now, -51.2), note: "导出样本做比对。", durationMs: 48 * 60 * 1000, createdAt: isoOffset(now, -52), updatedAt: isoOffset(now, -51.2) },
+    ],
+  };
+}
+
+function isoOffset(nowMs, offsetHours) {
+  return new Date(nowMs + offsetHours * 60 * 60 * 1000).toISOString();
 }
 
 function formatDateTime(isoString) {
@@ -892,7 +995,7 @@ function formatDuration(ms) {
 }
 
 function formatRelativeTime(isoString) {
-  const diffMinutes = Math.round((nowMs() - new Date(isoString).getTime()) / 60000);
+  const diffMinutes = Math.max(0, Math.round((Date.now() - new Date(isoString).getTime()) / 60000));
   if (diffMinutes < 60) {
     return `${diffMinutes} 分钟前`;
   }
@@ -919,27 +1022,17 @@ function startOfMonth(date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
-function getPastDays(days) {
-  return Array.from({ length: days }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (days - index - 1));
-    return dateKey(date);
-  });
-}
-
-function formatMonthDay(dateString) {
-  const [year, month, day] = dateString.split("-");
-  return `${Number(month)}/${Number(day)}`;
+function setTodayHour(hour) {
+  const date = new Date();
+  if (hour === 24) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+  }
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour);
 }
 
 function toLocalInputValue(isoString) {
   const date = new Date(isoString);
-  const year = date.getFullYear();
-  const month = pad(date.getMonth() + 1);
-  const day = pad(date.getDate());
-  const hours = pad(date.getHours());
-  const minutes = pad(date.getMinutes());
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function pad(value) {

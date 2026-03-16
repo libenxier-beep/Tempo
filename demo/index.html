@@ -12,21 +12,29 @@
         <section id="homeView" class="view is-active" data-view="home">
           <header class="topbar">
             <div>
-              <p class="eyebrow">Time Ledger</p>
-              <h1>时间账本</h1>
+              <p class="eyebrow">Home</p>
+              <h1>首页</h1>
             </div>
-            <button id="seedButton" class="icon-button" type="button">重置</button>
+            <button id="seedButton" class="icon-button" type="button">重置示例</button>
           </header>
 
-          <label class="search-box">
-            <span class="sr-only">搜索具体项目</span>
-            <input id="projectSearch" type="search" placeholder="搜索具体项目，找不到就直接创建" />
-          </label>
+          <section class="panel">
+            <div class="panel-title-row compact">
+              <div>
+                <p class="eyebrow">搜索区</p>
+                <h2>找项目，直接开跑</h2>
+              </div>
+            </div>
+            <label class="search-box">
+              <span class="sr-only">搜索具体项目</span>
+              <input id="projectSearch" type="search" placeholder="搜索具体项目，找不到就在首页轻量创建" />
+            </label>
+          </section>
 
-          <section class="panel current-panel">
+          <section class="panel">
             <div class="panel-title-row">
               <div>
-                <p class="eyebrow">当前任务</p>
+                <p class="eyebrow">当前本人任务区</p>
                 <h2>本人正在进行</h2>
               </div>
             </div>
@@ -34,7 +42,7 @@
             <div class="panel-divider"></div>
             <div class="panel-title-row compact">
               <div>
-                <p class="eyebrow">后台并行</p>
+                <p class="eyebrow">运行中的 Agent 任务区</p>
                 <h3>Agent 任务</h3>
               </div>
             </div>
@@ -44,16 +52,35 @@
           <section class="panel">
             <div class="panel-title-row">
               <div>
-                <p class="eyebrow">可执行项目</p>
-                <h2>点一下直接开始</h2>
+                <p class="eyebrow">项目列表控制区</p>
+                <h2>排序模式</h2>
               </div>
               <div class="segmented-control">
                 <button id="recentModeButton" class="segment is-active" type="button">最近使用</button>
                 <button id="frequentModeButton" class="segment" type="button">最常使用</button>
               </div>
             </div>
-            <div id="projectQuickActions" class="quick-action-bar"></div>
+            <p class="section-caption">首页只负责项目发现、开始 / 停止任务和轻量快速创建。</p>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title-row compact">
+              <div>
+                <p class="eyebrow">项目列表区</p>
+                <h2>可点击开始的具体项目</h2>
+              </div>
+            </div>
             <div id="projectList" class="project-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title-row compact">
+              <div>
+                <p class="eyebrow">搜索空状态和快速创建入口</p>
+                <h2>没有匹配项时在首页补一个</h2>
+              </div>
+            </div>
+            <div id="homeEmptyCreate"></div>
           </section>
         </section>
 
@@ -68,15 +95,16 @@
           <section class="panel">
             <div class="panel-title-row">
               <div>
-                <p class="eyebrow">排序</p>
-                <h2>按你能找得到的方式</h2>
+                <p class="eyebrow">排序控件区</p>
+                <h2>找回发生过的事</h2>
               </div>
               <select id="historySort">
+                <option value="duration">耗时长到短</option>
                 <option value="desc">时间倒序</option>
                 <option value="asc">时间正序</option>
-                <option value="duration">耗时长短</option>
               </select>
             </div>
+            <div id="historySummary" class="summary-row"></div>
             <div id="historyList" class="history-list"></div>
           </section>
         </section>
@@ -92,18 +120,23 @@
           <section class="panel">
             <div class="panel-title-row">
               <div>
-                <p class="eyebrow">统计周期</p>
+                <p class="eyebrow">周期切换区</p>
                 <h2>日 / 周 / 月</h2>
+              </div>
+              <div class="segmented-control">
+                <button class="segment period-segment is-active" data-period="day" type="button">日</button>
+                <button class="segment period-segment" data-period="week" type="button">周</button>
+                <button class="segment period-segment" data-period="month" type="button">月</button>
               </div>
             </div>
             <div id="dashboardMetrics" class="metric-grid"></div>
             <div class="dashboard-columns">
               <div>
-                <h3 class="subheading">项目类型分布</h3>
+                <h3 class="section-subtitle">项目类型分布</h3>
                 <div id="dashboardTypeBreakdown" class="stack-list"></div>
               </div>
               <div>
-                <h3 class="subheading">最近 7 天本人投入</h3>
+                <h3 class="section-subtitle">趋势</h3>
                 <div id="dashboardTrend" class="stack-list"></div>
               </div>
             </div>
@@ -121,30 +154,28 @@
           <section class="panel">
             <div class="panel-title-row">
               <div>
-                <p class="eyebrow">项目类型</p>
-                <h2>分类总表</h2>
+                <p class="eyebrow">项目类型管理区</p>
+                <h2>先把骨架管住</h2>
               </div>
             </div>
-
             <form id="typeForm" class="stack-form">
               <input id="typeNameInput" type="text" placeholder="新建项目类型，例如：生活 / 工作 / 学习" required />
               <button id="typeSubmitButton" class="primary-button" type="submit">新增项目类型</button>
             </form>
-
+            <div id="typeConstraintHint" class="inline-hint"></div>
             <div id="typeList" class="stack-list"></div>
           </section>
 
           <section class="panel">
             <div class="panel-title-row">
               <div>
-                <p class="eyebrow">具体项目</p>
-                <h2>执行对象总表</h2>
+                <p class="eyebrow">具体项目管理区</p>
+                <h2>活跃和归档分开看</h2>
               </div>
             </div>
-
             <form id="projectForm" class="stack-form">
               <select id="projectTypeSelect" required></select>
-              <input id="projectNameInput" type="text" placeholder="新建具体项目，例如：散步 / 产品设计 / 跑训练" required />
+              <input id="projectNameInput" type="text" placeholder="新建具体项目，例如：散步 / 阅读 / 跑训练" required />
               <select id="projectActorSelect" required>
                 <option value="self">本人</option>
                 <option value="agent">Agent</option>
@@ -152,16 +183,32 @@
               <button id="projectSubmitButton" class="primary-button" type="submit">新增具体项目</button>
             </form>
 
+            <div class="archive-toggle-row">
+              <button id="toggleArchivedButton" class="inline-button" type="button">查看已归档项目</button>
+            </div>
             <div id="projectAdminList" class="stack-list"></div>
+            <div id="archivedProjectList" class="stack-list hidden"></div>
           </section>
         </section>
       </main>
 
-      <nav class="bottom-nav">
-        <button class="nav-item is-active" data-nav="home" type="button">首页</button>
-        <button class="nav-item" data-nav="history" type="button">历史记录</button>
-        <button class="nav-item" data-nav="dashboard" type="button">仪表盘</button>
-        <button class="nav-item" data-nav="me" type="button">我</button>
+      <nav class="bottom-nav" aria-label="一级页面导航">
+        <button class="nav-item is-active" data-nav="home" type="button">
+          <span class="nav-label-cn">首页</span>
+          <span class="nav-label-en">Home</span>
+        </button>
+        <button class="nav-item" data-nav="history" type="button">
+          <span class="nav-label-cn">历史记录</span>
+          <span class="nav-label-en">History</span>
+        </button>
+        <button class="nav-item" data-nav="dashboard" type="button">
+          <span class="nav-label-cn">仪表盘</span>
+          <span class="nav-label-en">Dashboard</span>
+        </button>
+        <button class="nav-item" data-nav="me" type="button">
+          <span class="nav-label-cn">我</span>
+          <span class="nav-label-en">Manage</span>
+        </button>
       </nav>
     </div>
 

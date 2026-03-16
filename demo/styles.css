@@ -1,8 +1,6 @@
 :root {
   --bg: #dceffd;
-  --bg-soft: #edf5fb;
   --surface: rgba(247, 250, 253, 0.94);
-  --surface-strong: #f9fbfd;
   --ink: #18212a;
   --muted: #64707c;
   --line: rgba(24, 33, 42, 0.1);
@@ -10,12 +8,12 @@
   --accent-strong: #2677c0;
   --accent-soft: rgba(75, 159, 225, 0.14);
   --gray: #8e9aa7;
-  --success: #35a67b;
   --danger: #d05b52;
+  --success: #2e9b6d;
+  --warning: #c9891a;
   --shadow: 0 18px 48px rgba(45, 91, 128, 0.14);
   --radius-xl: 28px;
   --radius-lg: 22px;
-  --radius-md: 16px;
   --radius-sm: 12px;
 }
 
@@ -58,15 +56,15 @@ button {
   border: 0;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .app-shell {
   width: min(100%, 540px);
   margin: 0 auto;
   min-height: 100vh;
   padding: 18px 14px calc(92px + env(safe-area-inset-bottom));
-}
-
-.screen {
-  display: block;
 }
 
 .view {
@@ -92,6 +90,12 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.panel {
+  border-radius: var(--radius-xl);
+  padding: 18px;
+  margin-top: 14px;
 }
 
 .eyebrow {
@@ -122,27 +126,23 @@ h3 {
   font-size: 17px;
 }
 
-.subheading {
+.section-subtitle {
   margin-bottom: 12px;
 }
 
 .icon-button,
 .primary-button,
-.ghost-button,
 .segment,
 .nav-item,
-.chip,
 .inline-button {
   cursor: pointer;
 }
 
 .icon-button,
-.ghost-button,
 .segment,
-.chip,
 .inline-button,
-select,
 input,
+select,
 textarea {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -151,31 +151,8 @@ textarea {
 }
 
 .icon-button,
-.inline-button,
-.chip {
+.inline-button {
   padding: 10px 12px;
-}
-
-.search-box {
-  display: block;
-  margin-top: 14px;
-}
-
-.search-box input,
-.stack-form input,
-.stack-form select,
-.history-edit-grid input,
-.history-edit-grid textarea,
-.stack-form button,
-#historySort {
-  width: 100%;
-  padding: 14px 16px;
-}
-
-.panel {
-  border-radius: var(--radius-xl);
-  padding: 18px;
-  margin-top: 14px;
 }
 
 .panel-title-row {
@@ -210,18 +187,34 @@ textarea {
   border-radius: 10px;
 }
 
-.segment.is-active {
+.segment.is-active,
+.nav-item.is-active {
   background: var(--accent);
   color: #fff;
   border-color: transparent;
 }
 
+.search-box input,
+.quick-create-form input,
+.quick-create-form select,
+.quick-create-form button,
+.stack-form input,
+.stack-form select,
+.stack-form button,
+.history-edit-grid input,
+.history-edit-grid textarea,
+#historySort {
+  width: 100%;
+  padding: 14px 16px;
+}
+
 .current-task-card,
 .agent-card,
 .project-card,
+.quick-create-card,
 .history-card,
-.metric-card,
-.stack-card {
+.stack-card,
+.metric-card {
   border-radius: var(--radius-lg);
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.72);
@@ -232,16 +225,19 @@ textarea {
   background: linear-gradient(145deg, rgba(75, 159, 225, 0.16), rgba(255, 255, 255, 0.84));
 }
 
-.current-task-meta,
-.project-meta,
-.history-meta,
-.muted {
-  color: var(--muted);
-}
-
 .current-task-title {
   font-size: 22px;
   margin-bottom: 10px;
+}
+
+.current-task-meta,
+.project-meta,
+.history-meta,
+.muted,
+.section-caption,
+.inline-hint,
+.quick-create-copy {
+  color: var(--muted);
 }
 
 .big-timer {
@@ -252,7 +248,11 @@ textarea {
 }
 
 .action-row,
-.quick-action-bar {
+.quick-create-actions,
+.badge-row,
+.summary-row,
+.archive-toggle-row,
+.admin-actions {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
@@ -270,37 +270,38 @@ textarea {
   background: var(--danger);
 }
 
-.ghost-button,
-.inline-button {
-  padding: 12px 14px;
+.primary-button.success {
+  background: var(--success);
+}
+
+.inline-button.warning {
+  color: var(--warning);
 }
 
 .stack-list,
 .project-list,
-.history-list {
+.quick-create-grid,
+.history-list,
+.metric-grid,
+.dashboard-columns {
   display: grid;
   gap: 12px;
+}
+
+.dashboard-columns {
+  margin-top: 14px;
 }
 
 .agent-card,
 .project-card,
+.quick-create-card,
 .history-card,
-.stack-card {
+.stack-card,
+.metric-card {
   padding: 14px;
 }
 
-.agent-card {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-}
-
-.project-card {
-  display: grid;
-  gap: 12px;
-}
-
+.agent-card,
 .project-card-header,
 .history-row-top,
 .admin-row {
@@ -310,6 +311,11 @@ textarea {
   align-items: start;
 }
 
+.project-card {
+  display: grid;
+  gap: 12px;
+}
+
 .project-name,
 .history-title {
   font-size: 18px;
@@ -317,15 +323,12 @@ textarea {
 }
 
 .project-meta,
-.history-meta {
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.badge-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.history-meta,
+.section-caption,
+.inline-hint,
+.quick-create-copy {
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .pill {
@@ -351,59 +354,27 @@ textarea {
   color: var(--muted);
 }
 
+.quick-create-card,
 .history-card.expanded {
   background: rgba(255, 255, 255, 0.9);
 }
 
-.history-summary {
-  display: grid;
-  gap: 8px;
-}
-
-.history-edit-grid {
-  display: grid;
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.history-edit-grid textarea {
-  min-height: 96px;
-  resize: vertical;
-}
-
-.stack-form {
-  display: grid;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
+.quick-create-card,
+.stack-form,
+.history-edit-grid,
+.history-summary,
 .stack-card {
-  display: grid;
-  gap: 10px;
-}
-
-.stack-card.is-archived {
-  opacity: 0.62;
-}
-
-.admin-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.metric-grid,
-.dashboard-columns {
   display: grid;
   gap: 12px;
 }
 
-.metric-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.history-edit-grid textarea {
+  min-height: 92px;
+  resize: vertical;
 }
 
-.metric-card {
-  padding: 14px;
+.metric-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .metric-label,
@@ -415,7 +386,7 @@ textarea {
 .metric-value {
   display: block;
   margin: 10px 0 8px;
-  font-size: 26px;
+  font-size: 24px;
 }
 
 .bar-track {
@@ -449,13 +420,20 @@ textarea {
 
 .nav-item {
   border-radius: 14px;
-  padding: 12px 8px;
+  padding: 10px 8px;
   color: var(--muted);
+  display: grid;
+  gap: 2px;
+  text-align: center;
 }
 
-.nav-item.is-active {
-  background: var(--accent);
-  color: #fff;
+.nav-label-cn {
+  font-size: 13px;
+}
+
+.nav-label-en {
+  font-size: 11px;
+  opacity: 0.75;
 }
 
 @keyframes fade-in {
