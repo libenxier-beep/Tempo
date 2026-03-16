@@ -8,10 +8,29 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Tempo" />
-    <link rel="manifest" href="./manifest.webmanifest?v=20260316b" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon.svg" />
-    <link rel="stylesheet" href="./styles.css?v=20260316b" />
+    <script>
+      (function () {
+        const isLocalDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+        const assetVersion = isLocalDev ? `dev-${Date.now()}` : "20260316d";
+
+        window.__TEMPO_ASSET_VERSION__ = assetVersion;
+        window.__TEMPO_LOCAL_DEV__ = isLocalDev;
+
+        if (!isLocalDev) {
+          const manifest = document.createElement("link");
+          manifest.rel = "manifest";
+          manifest.href = `./manifest.webmanifest?v=${assetVersion}`;
+          document.head.appendChild(manifest);
+        }
+
+        const stylesheet = document.createElement("link");
+        stylesheet.rel = "stylesheet";
+        stylesheet.href = `./styles.css?v=${assetVersion}`;
+        document.head.appendChild(stylesheet);
+      })();
+    </script>
   </head>
   <body>
     <div class="app-shell">
@@ -189,9 +208,12 @@
                 <h2>先把骨架管住</h2>
               </div>
             </div>
-            <form id="typeForm" class="stack-form">
+            <div class="archive-toggle-row">
+              <button id="toggleTypeCreateButton" class="inline-button" type="button">新增项目类型</button>
+            </div>
+            <form id="typeForm" class="stack-form hidden">
               <input id="typeNameInput" type="text" placeholder="新建项目类型，例如：生活 / 工作 / 学习" required />
-              <button id="typeSubmitButton" class="primary-button" type="submit">新增项目类型</button>
+              <button class="primary-button" type="submit">保存新项目类型</button>
             </form>
             <div id="typeConstraintHint" class="inline-hint"></div>
             <div id="typeList" class="stack-list"></div>
@@ -204,14 +226,17 @@
                 <h2>活跃和归档分开看</h2>
               </div>
             </div>
-            <form id="projectForm" class="stack-form">
+            <div class="archive-toggle-row">
+              <button id="toggleProjectCreateButton" class="inline-button" type="button">新增具体项目</button>
+            </div>
+            <form id="projectForm" class="stack-form hidden">
               <select id="projectTypeSelect" required></select>
               <input id="projectNameInput" type="text" placeholder="新建具体项目，例如：散步 / 阅读 / 跑训练" required />
               <select id="projectActorSelect" required>
                 <option value="self">本人</option>
                 <option value="agent">Agent</option>
               </select>
-              <button id="projectSubmitButton" class="primary-button" type="submit">新增具体项目</button>
+              <button class="primary-button" type="submit">保存新具体项目</button>
             </form>
 
             <div class="archive-toggle-row">
@@ -250,7 +275,12 @@
         <p class="metric-note"></p>
       </article>
     </template>
-
-    <script src="./app.js?v=20260316b"></script>
+    <script>
+      (function () {
+        const script = document.createElement("script");
+        script.src = `./app.js?v=${window.__TEMPO_ASSET_VERSION__ || "20260316d"}`;
+        document.body.appendChild(script);
+      })();
+    </script>
   </body>
 </html>

@@ -345,6 +345,12 @@ textarea {
   color: #fff;
 }
 
+.primary-button:disabled {
+  background: rgba(142, 154, 167, 0.55);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: not-allowed;
+}
+
 .primary-button.danger {
   background: var(--danger);
 }

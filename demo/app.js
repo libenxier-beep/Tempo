@@ -13,6 +13,8 @@ const uiState = {
   historyExpandedId: null,
   typeEditId: null,
   projectEditId: null,
+  showTypeCreate: false,
+  showProjectCreate: false,
   showArchivedProjects: false,
 };
 
@@ -42,10 +44,12 @@ const els = {
   nicknameForm: document.querySelector("#nicknameForm"),
   nicknameInput: document.querySelector("#nicknameInput"),
   nicknameHint: document.querySelector("#nicknameHint"),
+  toggleTypeCreateButton: document.querySelector("#toggleTypeCreateButton"),
   typeForm: document.querySelector("#typeForm"),
   typeNameInput: document.querySelector("#typeNameInput"),
   typeConstraintHint: document.querySelector("#typeConstraintHint"),
   typeList: document.querySelector("#typeList"),
+  toggleProjectCreateButton: document.querySelector("#toggleProjectCreateButton"),
   projectForm: document.querySelector("#projectForm"),
   projectTypeSelect: document.querySelector("#projectTypeSelect"),
   projectNameInput: document.querySelector("#projectNameInput"),
@@ -145,6 +149,21 @@ function bindEvents() {
   els.nicknameForm.addEventListener("submit", handleNicknameSubmit);
   els.typeForm.addEventListener("submit", handleTypeSubmit);
   els.projectForm.addEventListener("submit", handleProjectSubmit);
+  els.toggleTypeCreateButton.addEventListener("click", () => {
+    uiState.showTypeCreate = !uiState.showTypeCreate;
+    if (!uiState.showTypeCreate) {
+      els.typeForm.reset();
+      els.typeConstraintHint.textContent = "";
+    }
+    renderManage();
+  });
+  els.toggleProjectCreateButton.addEventListener("click", () => {
+    uiState.showProjectCreate = !uiState.showProjectCreate;
+    if (!uiState.showProjectCreate) {
+      els.projectForm.reset();
+    }
+    renderManage();
+  });
   els.toggleArchivedButton.addEventListener("click", () => {
     uiState.showArchivedProjects = !uiState.showArchivedProjects;
     renderManage();
@@ -165,6 +184,21 @@ function render() {
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) {
+    return;
+  }
+
+  if (isLocalDevHost()) {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((registration) => registration.unregister());
+    });
+
+    if ("caches" in window) {
+      caches.keys().then((keys) => {
+        keys
+          .filter((key) => key.startsWith("tempo-demo-"))
+          .forEach((key) => caches.delete(key));
+      });
+    }
     return;
   }
 
@@ -199,6 +233,10 @@ function registerServiceWorker() {
     registerServiceWorker.hasReloaded = true;
     window.location.reload();
   });
+}
+
+function isLocalDevHost() {
+  return ["localhost", "127.0.0.1"].includes(window.location.hostname);
 }
 
 function syncNetworkBanner(isOnline) {
@@ -619,8 +657,16 @@ function renderManage() {
   const data = appStore.get();
   renderNickname(data);
   renderTypeSelectOptions(data);
+  syncManageCreatePanels();
   renderTypeList(data);
   renderProjectLists(data);
+}
+
+function syncManageCreatePanels() {
+  els.typeForm.classList.toggle("hidden", !uiState.showTypeCreate);
+  els.projectForm.classList.toggle("hidden", !uiState.showProjectCreate);
+  els.toggleTypeCreateButton.textContent = uiState.showTypeCreate ? "收起新增项目类型" : "新增项目类型";
+  els.toggleProjectCreateButton.textContent = uiState.showProjectCreate ? "收起新增具体项目" : "新增具体项目";
 }
 
 function renderNickname(data) {
@@ -667,8 +713,7 @@ function renderTypeList(data) {
                   <label class="field-label" for="inline-type-name-${type.id}">编辑项目类型</label>
                   <input id="inline-type-name-${type.id}" type="text" value="${escapeHtml(type.name)}" />
                   <div class="admin-actions">
-                    <button class="primary-button" type="button" data-save-type="${type.id}">保存</button>
-                    <button class="inline-button" type="button" data-cancel-type-edit>取消</button>
+                    <button class="primary-button" type="button" data-save-type="${type.id}" disabled>保存</button>
                   </div>
                 </div>
               `
@@ -686,7 +731,7 @@ function renderTypeList(data) {
       if (!type) {
         return;
       }
-      uiState.typeEditId = type.id;
+      uiState.typeEditId = uiState.typeEditId === type.id ? null : type.id;
       renderManage();
     });
   });
@@ -699,11 +744,8 @@ function renderTypeList(data) {
     button.addEventListener("click", () => saveInlineTypeEdit(button.dataset.saveType));
   });
 
-  els.typeList.querySelectorAll("[data-cancel-type-edit]").forEach((button) => {
-    button.addEventListener("click", () => {
-      uiState.typeEditId = null;
-      renderManage();
-    });
+  els.typeList.querySelectorAll("[data-edit-type]").forEach((button) => {
+    syncInlineTypeSaveState(button.dataset.editType);
   });
 }
 
@@ -732,7 +774,7 @@ function renderProjectLists(data) {
       if (!project) {
         return;
       }
-      uiState.projectEditId = project.id;
+      uiState.projectEditId = uiState.projectEditId === project.id ? null : project.id;
       renderManage();
     });
   });
@@ -745,11 +787,8 @@ function renderProjectLists(data) {
     button.addEventListener("click", () => saveInlineProjectEdit(button.dataset.saveProject));
   });
 
-  document.querySelectorAll("[data-cancel-project-edit]").forEach((button) => {
-    button.addEventListener("click", () => {
-      uiState.projectEditId = null;
-      renderManage();
-    });
+  document.querySelectorAll("[data-edit-project]").forEach((button) => {
+    syncInlineProjectSaveState(button.dataset.editProject);
   });
 }
 
@@ -784,8 +823,7 @@ function renderProjectAdminCard(project, data, archived) {
                 <option value="agent" ${project.actor === "agent" ? "selected" : ""}>Agent</option>
               </select>
               <div class="admin-actions">
-                <button class="primary-button" type="button" data-save-project="${project.id}">保存</button>
-                <button class="inline-button" type="button" data-cancel-project-edit>取消</button>
+                <button class="primary-button" type="button" data-save-project="${project.id}" disabled>保存</button>
               </div>
             </div>
           `
@@ -838,6 +876,7 @@ function handleTypeSubmit(event) {
 
   appStore.save(data);
   els.typeForm.reset();
+  uiState.showTypeCreate = false;
   renderManage();
 }
 
@@ -876,6 +915,7 @@ function handleProjectSubmit(event) {
 
   appStore.save(data);
   els.projectForm.reset();
+  uiState.showProjectCreate = false;
   renderManage();
   if (uiState.currentView === "home") {
     renderHome();
@@ -902,6 +942,28 @@ function saveInlineTypeEdit(typeId) {
   uiState.typeEditId = null;
   appStore.save(data);
   render();
+}
+
+function syncInlineTypeSaveState(typeId) {
+  const data = appStore.get();
+  const type = findType(data, typeId);
+  if (!type) {
+    return;
+  }
+
+  const nameInput = document.querySelector(`#inline-type-name-${CSS.escape(typeId)}`);
+  const saveButton = document.querySelector(`[data-save-type="${CSS.escape(typeId)}"]`);
+  if (!nameInput || !saveButton) {
+    return;
+  }
+
+  const syncDisabled = () => {
+    const hasChanges = nameInput.value.trim() !== type.name;
+    saveButton.disabled = !hasChanges;
+  };
+
+  nameInput.addEventListener("input", syncDisabled);
+  syncDisabled();
 }
 
 function saveInlineProjectEdit(projectId) {
@@ -931,6 +993,35 @@ function saveInlineProjectEdit(projectId) {
   uiState.projectEditId = null;
   appStore.save(data);
   render();
+}
+
+function syncInlineProjectSaveState(projectId) {
+  const data = appStore.get();
+  const project = findProject(data, projectId);
+  if (!project) {
+    return;
+  }
+
+  const nameInput = document.querySelector(`#inline-project-name-${CSS.escape(projectId)}`);
+  const typeSelect = document.querySelector(`#inline-project-type-${CSS.escape(projectId)}`);
+  const actorSelect = document.querySelector(`#inline-project-actor-${CSS.escape(projectId)}`);
+  const saveButton = document.querySelector(`[data-save-project="${CSS.escape(projectId)}"]`);
+  if (!nameInput || !typeSelect || !actorSelect || !saveButton) {
+    return;
+  }
+
+  const syncDisabled = () => {
+    const hasChanges =
+      nameInput.value.trim() !== project.name ||
+      typeSelect.value !== project.typeId ||
+      actorSelect.value !== project.actor;
+    saveButton.disabled = !hasChanges;
+  };
+
+  nameInput.addEventListener("input", syncDisabled);
+  typeSelect.addEventListener("change", syncDisabled);
+  actorSelect.addEventListener("change", syncDisabled);
+  syncDisabled();
 }
 
 function deleteType(typeId) {
