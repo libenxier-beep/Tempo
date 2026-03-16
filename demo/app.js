@@ -313,15 +313,19 @@ function renderHomeEmptyCreate(data, filteredProjects, query) {
           </select>
         </div>
         <div class="quick-create-actions">
-          <button class="primary-button success" type="submit">快速创建并加入首页列表</button>
+          <button class="inline-button" type="button" id="quickCreateOnlyButton">新建</button>
+          <button class="primary-button success" type="submit">新建并开始</button>
         </div>
       </form>
     </article>
   `;
 
+  els.homeEmptyCreate.querySelector("#quickCreateOnlyButton").addEventListener("click", () => {
+    handleQuickCreateSubmit(false);
+  });
   els.homeEmptyCreate.querySelector("#quickCreateForm").addEventListener("submit", (event) => {
     event.preventDefault();
-    handleQuickCreateSubmit();
+    handleQuickCreateSubmit(true);
   });
 }
 
@@ -713,7 +717,7 @@ function archiveProject(projectId) {
   render();
 }
 
-function handleQuickCreateSubmit() {
+function handleQuickCreateSubmit(shouldStart) {
   const name = document.querySelector("#quickCreateName").value.trim();
   const typeId = document.querySelector("#quickCreateType").value;
   const actor = document.querySelector("#quickCreateActor").value;
@@ -731,7 +735,7 @@ function handleQuickCreateSubmit() {
   }
 
   const now = new Date().toISOString();
-  data.projects.unshift({
+  const newProject = {
     id: crypto.randomUUID(),
     typeId,
     name,
@@ -743,8 +747,17 @@ function handleQuickCreateSubmit() {
     sortOrder: data.projects.length,
     createdAt: now,
     updatedAt: now,
-  });
+  };
+  data.projects.unshift(newProject);
   appStore.save(data);
+
+  if (shouldStart) {
+    uiState.projectSearch = "";
+    els.projectSearch.value = "";
+    startProject(newProject.id);
+    return;
+  }
+
   uiState.projectSearch = "";
   els.projectSearch.value = "";
   render();
