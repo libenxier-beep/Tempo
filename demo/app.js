@@ -43,6 +43,7 @@ const els = {
   dashboardTrend: document.querySelector("#dashboardTrend"),
   periodButtons: document.querySelectorAll(".period-segment"),
   manageTitle: document.querySelector("#manageTitle"),
+  manageNavLabel: document.querySelector("#manageNavLabel"),
   nicknameForm: document.querySelector("#nicknameForm"),
   profileActionButton: document.querySelector("#profileActionButton"),
   nicknameInput: document.querySelector("#nicknameInput"),
@@ -682,6 +683,7 @@ function renderNickname(data) {
   const nickname = data.profile?.nickname || "";
   const motto = data.profile?.motto || "";
   els.manageTitle.textContent = nickname || "我";
+  els.manageNavLabel.textContent = nickname || "我";
   els.nicknameInput.value = nickname;
   els.mottoInput.value = motto;
   els.nicknameInput.disabled = !uiState.profileEditMode;
