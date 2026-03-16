@@ -31,6 +31,27 @@ body {
     linear-gradient(180deg, #cfe8fd 0%, #e8f1f8 46%, #f1f4f7 100%);
 }
 
+.network-banner {
+  position: sticky;
+  top: 10px;
+  z-index: 20;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(24, 33, 42, 0.86);
+  color: #f6fbff;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.network-banner.is-online {
+  background: rgba(46, 155, 109, 0.92);
+}
+
+.network-banner.is-offline {
+  background: rgba(201, 137, 26, 0.92);
+}
+
 button,
 input,
 select,
@@ -260,6 +281,32 @@ textarea {
 
 .summary-row {
   margin-top: 12px;
+}
+
+.history-current-filter {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(75, 159, 225, 0.12);
+  border: 1px solid rgba(75, 159, 225, 0.2);
+  color: var(--accent-strong);
+}
+
+.history-current-filter strong {
+  font-weight: 700;
+}
+
+.summary-filter-button {
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.summary-filter-button.is-active {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(75, 159, 225, 0.2);
+  transform: translateY(-1px);
 }
 
 .primary-button {

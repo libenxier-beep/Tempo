@@ -3,11 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>时间账本</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <title>Tempo</title>
+    <meta name="theme-color" content="#dceffd" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Tempo" />
+    <link rel="manifest" href="./manifest.webmanifest?v=20260316b" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icon.svg" />
+    <link rel="stylesheet" href="./styles.css?v=20260316b" />
   </head>
   <body>
     <div class="app-shell">
+      <div id="networkBanner" class="network-banner hidden" role="status" aria-live="polite"></div>
       <main class="screen">
         <section id="homeView" class="view is-active" data-view="home">
           <header class="topbar">
@@ -240,6 +248,6 @@
       </article>
     </template>
 
-    <script src="./app.js"></script>
+    <script src="./app.js?v=20260316b"></script>
   </body>
 </html>

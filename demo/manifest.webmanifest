@@ -1,0 +1,19 @@
+{
+  "name": "Tempo",
+  "short_name": "Tempo",
+  "description": "A calm time ledger for recording attention and daily rhythm.",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#dceffd",
+  "theme_color": "#dceffd",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -8,6 +8,7 @@ const uiState = {
   historyProjectSearch: "",
   historyDateMode: "all",
   historyDateSearch: "",
+  historyStatusFilter: "all",
   dashboardPeriod: "day",
   historyExpandedId: null,
   typeEditId: null,
@@ -18,6 +19,7 @@ const uiState = {
 const els = {
   views: document.querySelectorAll(".view"),
   navItems: document.querySelectorAll(".nav-item"),
+  networkBanner: document.querySelector("#networkBanner"),
   projectSearch: document.querySelector("#projectSearch"),
   searchFeedback: document.querySelector("#searchFeedback"),
   projectList: document.querySelector("#projectList"),
@@ -73,11 +75,21 @@ const appStore = {
 
 let timerHandle = null;
 
+function createId() {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `tempo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 init();
 
 function init() {
   ensureSeedData();
   bindEvents();
+  syncNetworkBanner(navigator.onLine);
+  registerServiceWorker();
   render();
   startTimer();
 }
@@ -147,6 +159,9 @@ function bindEvents() {
     els.projectSearch.value = "";
     render();
   });
+
+  window.addEventListener("online", () => syncNetworkBanner(true));
+  window.addEventListener("offline", () => syncNetworkBanner(false));
 }
 
 function render() {
@@ -155,6 +170,31 @@ function render() {
   renderHistory();
   renderDashboard();
   renderManage();
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) {
+    return;
+  }
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {
+      // Keep the demo usable even if service worker registration fails.
+    });
+  });
+}
+
+function syncNetworkBanner(isOnline) {
+  els.networkBanner.textContent = isOnline ? "已恢复在线" : "当前离线，可继续使用已缓存内容";
+  els.networkBanner.classList.remove("hidden", "is-online", "is-offline");
+  els.networkBanner.classList.add(isOnline ? "is-online" : "is-offline");
+
+  clearTimeout(syncNetworkBanner.timeoutId);
+  if (isOnline) {
+    syncNetworkBanner.timeoutId = window.setTimeout(() => {
+      els.networkBanner.classList.add("hidden");
+    }, 1600);
+  }
 }
 
 function toggleViews() {
@@ -351,25 +391,39 @@ function renderHomeEmptyCreate(data, filteredProjects, query) {
 
 function renderHistory() {
   const data = appStore.get();
-  const filteredSessions = filterHistorySessions(
+  const baseFilteredSessions = filterHistorySessions(
     data.sessions,
     data,
     uiState.historyProjectSearch,
     uiState.historyDateMode,
     uiState.historyDateSearch,
   );
+  const filteredSessions = filterHistoryByStatus(baseFilteredSessions, uiState.historyStatusFilter);
   const sessions = sortSessions(filteredSessions, uiState.historySortMode);
   els.historySort.value = uiState.historySortMode;
   els.historyProjectSearch.value = uiState.historyProjectSearch;
   els.historyDateMode.value = uiState.historyDateMode;
   syncHistoryDateInput();
   els.historyDateSearch.value = uiState.historyDateSearch;
-  const runningCount = filteredSessions.filter((session) => !session.endAt).length;
+  const runningCount = baseFilteredSessions.filter((session) => !session.endAt).length;
+  const completedCount = baseFilteredSessions.length - runningCount;
+  const historyStatusLabelMap = {
+    all: "全部结果",
+    running: "进行中",
+    completed: "已结束",
+  };
   els.historySummary.innerHTML = `
-    <span class="pill gray">当前结果 ${filteredSessions.length}</span>
-    <span class="pill gray">进行中 ${runningCount}</span>
-    <span class="pill gray">已结束 ${filteredSessions.length - runningCount}</span>
+    <span class="history-current-filter">当前分类：<strong>${historyStatusLabelMap[uiState.historyStatusFilter]}</strong></span>
+    <button class="pill gray summary-filter-button ${uiState.historyStatusFilter === "all" ? "is-active" : ""}" type="button" data-history-status="all">全部结果 ${baseFilteredSessions.length}</button>
+    <button class="pill gray summary-filter-button ${uiState.historyStatusFilter === "running" ? "is-active" : ""}" type="button" data-history-status="running">进行中 ${runningCount}</button>
+    <button class="pill gray summary-filter-button ${uiState.historyStatusFilter === "completed" ? "is-active" : ""}" type="button" data-history-status="completed">已结束 ${completedCount}</button>
   `;
+  els.historySummary.querySelectorAll("[data-history-status]").forEach((button) => {
+    button.addEventListener("click", () => {
+      uiState.historyStatusFilter = button.dataset.historyStatus;
+      renderHistory();
+    });
+  });
 
   if (!sessions.length) {
     els.historyList.innerHTML = `<div class="empty-state">当前筛选条件下没有历史记录。</div>`;
@@ -697,7 +751,7 @@ function handleTypeSubmit(event) {
     uiState.typeEditId = null;
   } else {
     data.projectTypes.push({
-      id: crypto.randomUUID(),
+      id: createId(),
       name,
       sortOrder: data.projectTypes.length,
       createdAt: now,
@@ -736,7 +790,7 @@ function handleProjectSubmit(event) {
     uiState.projectEditId = null;
   } else {
     data.projects.unshift({
-      id: crypto.randomUUID(),
+      id: createId(),
       typeId,
       name,
       actor,
@@ -806,7 +860,7 @@ function handleQuickCreateSubmit(shouldStart) {
 
   const now = new Date().toISOString();
   const newProject = {
-    id: crypto.randomUUID(),
+    id: createId(),
     typeId,
     name,
     actor,
@@ -852,7 +906,7 @@ function startProject(projectId) {
   }
 
   data.sessions.unshift({
-    id: crypto.randomUUID(),
+    id: createId(),
     projectId,
     startAt: now,
     endAt: null,
@@ -960,6 +1014,18 @@ function filterHistorySessions(sessions, data, projectQuery, dateMode, dateQuery
     const matchesDate = matchesHistoryDate(session, dateMode, dateQuery);
     return matchesProject && matchesDate;
   });
+}
+
+function filterHistoryByStatus(sessions, statusFilter) {
+  if (statusFilter === "running") {
+    return sessions.filter((session) => !session.endAt);
+  }
+
+  if (statusFilter === "completed") {
+    return sessions.filter((session) => Boolean(session.endAt));
+  }
+
+  return sessions;
 }
 
 function matchesHistoryDate(session, dateMode, dateQuery) {
@@ -1193,14 +1259,14 @@ function ensureSeedData() {
 
 function createSeedData() {
   const now = Date.now();
-  const typeLifeId = crypto.randomUUID();
-  const typeWorkId = crypto.randomUUID();
-  const typeLearnId = crypto.randomUUID();
-  const selfWalkId = crypto.randomUUID();
-  const selfReadingId = crypto.randomUUID();
-  const selfDesignId = crypto.randomUUID();
-  const agentTrainId = crypto.randomUUID();
-  const agentExportId = crypto.randomUUID();
+  const typeLifeId = createId();
+  const typeWorkId = createId();
+  const typeLearnId = createId();
+  const selfWalkId = createId();
+  const selfReadingId = createId();
+  const selfDesignId = createId();
+  const agentTrainId = createId();
+  const agentExportId = createId();
   const currentIso = new Date(now).toISOString();
 
   return {
@@ -1222,11 +1288,11 @@ function createSeedData() {
       { id: agentExportId, name: "批量导出", typeId: typeWorkId, actor: "agent", archived: true, archivedAt: isoOffset(now, -12), usageCount: 4, lastUsedAt: isoOffset(now, -52), sortOrder: 4, createdAt: isoOffset(now, -3), updatedAt: isoOffset(now, -12) },
     ],
     sessions: [
-      { id: crypto.randomUUID(), projectId: selfWalkId, startAt: isoOffset(now, -3), endAt: isoOffset(now, -2.5), note: "走了一圈，脑子清了一点。", durationMs: 30 * 60 * 1000, createdAt: isoOffset(now, -3), updatedAt: isoOffset(now, -2.5) },
-      { id: crypto.randomUUID(), projectId: agentTrainId, startAt: isoOffset(now, -1.5), endAt: null, note: "", durationMs: null, createdAt: isoOffset(now, -1.5), updatedAt: isoOffset(now, -1.5) },
-      { id: crypto.randomUUID(), projectId: selfReadingId, startAt: isoOffset(now, -26), endAt: isoOffset(now, -25.25), note: "读了一章，标了几个点。", durationMs: 45 * 60 * 1000, createdAt: isoOffset(now, -26), updatedAt: isoOffset(now, -25.25) },
-      { id: crypto.randomUUID(), projectId: selfDesignId, startAt: isoOffset(now, -0.66), endAt: null, note: "", durationMs: null, createdAt: isoOffset(now, -0.66), updatedAt: isoOffset(now, -0.66) },
-      { id: crypto.randomUUID(), projectId: agentExportId, startAt: isoOffset(now, -52), endAt: isoOffset(now, -51.2), note: "导出样本做比对。", durationMs: 48 * 60 * 1000, createdAt: isoOffset(now, -52), updatedAt: isoOffset(now, -51.2) },
+      { id: createId(), projectId: selfWalkId, startAt: isoOffset(now, -3), endAt: isoOffset(now, -2.5), note: "走了一圈，脑子清了一点。", durationMs: 30 * 60 * 1000, createdAt: isoOffset(now, -3), updatedAt: isoOffset(now, -2.5) },
+      { id: createId(), projectId: agentTrainId, startAt: isoOffset(now, -1.5), endAt: null, note: "", durationMs: null, createdAt: isoOffset(now, -1.5), updatedAt: isoOffset(now, -1.5) },
+      { id: createId(), projectId: selfReadingId, startAt: isoOffset(now, -26), endAt: isoOffset(now, -25.25), note: "读了一章，标了几个点。", durationMs: 45 * 60 * 1000, createdAt: isoOffset(now, -26), updatedAt: isoOffset(now, -25.25) },
+      { id: createId(), projectId: selfDesignId, startAt: isoOffset(now, -0.66), endAt: null, note: "", durationMs: null, createdAt: isoOffset(now, -0.66), updatedAt: isoOffset(now, -0.66) },
+      { id: createId(), projectId: agentExportId, startAt: isoOffset(now, -52), endAt: isoOffset(now, -51.2), note: "导出样本做比对。", durationMs: 48 * 60 * 1000, createdAt: isoOffset(now, -52), updatedAt: isoOffset(now, -51.2) },
     ],
   };
 }
