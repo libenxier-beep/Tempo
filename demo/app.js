@@ -563,6 +563,13 @@ function renderHistory() {
       event.stopPropagation();
     });
   });
+  els.historyList.querySelectorAll("[data-history-collapse]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      collapseHistoryCard(button.dataset.historyCollapse);
+    });
+  });
   els.historyList.querySelectorAll("[data-history-edit-input]").forEach((field) => {
     field.addEventListener("input", () => syncHistoryActionButton(field.dataset.historyEditInput));
     field.addEventListener("change", () => syncHistoryActionButton(field.dataset.historyEditInput));
@@ -659,13 +666,15 @@ function renderHistoryCard(session, data) {
         expanded
           ? `
             <div class="history-edit-grid">
-              <div class="history-field">
-                <span class="history-field-label">项目类型</span>
-                <span class="history-field-value">${escapeHtml(type?.name || "未分类")}</span>
-              </div>
-              <div class="history-field">
-                <span class="history-field-label">执行主体</span>
-                <span class="history-field-value">${project?.actor === "self" ? "本人" : "Agent"}</span>
+              <div class="history-edit-meta-row">
+                <button class="history-field history-collapse-trigger" type="button" data-history-collapse="${session.id}">
+                  <span class="history-field-label">项目类型</span>
+                  <span class="history-field-value">${escapeHtml(type?.name || "未分类")}</span>
+                </button>
+                <button class="history-field history-collapse-trigger" type="button" data-history-collapse="${session.id}">
+                  <span class="history-field-label">执行主体</span>
+                  <span class="history-field-value">${project?.actor === "self" ? "本人" : "Agent"}</span>
+                </button>
               </div>
               <label class="field-label" for="history-start-${session.id}">开始时间</label>
               <input id="history-start-${session.id}" type="datetime-local" value="${toLocalInputValue(session.startAt)}" data-history-edit-input="${session.id}" />
@@ -1270,7 +1279,7 @@ function startProject(projectId) {
     data.sessions = data.sessions.map((session) => {
       const sessionProject = findProject(data, session.projectId);
       if (!session.endAt && sessionProject?.actor === "self") {
-        return { ...session, endAt: now, durationMs: new Date(now).getTime() - new Date(session.startAt).getTime(), updatedAt: now };
+        return finishSession(session, now);
       }
       return session;
     });
@@ -1301,27 +1310,49 @@ function stopSession(sessionId) {
   const now = new Date().toISOString();
   data.sessions = data.sessions.map((session) =>
     session.id === sessionId && !session.endAt
-      ? { ...session, endAt: now, durationMs: new Date(now).getTime() - new Date(session.startAt).getTime(), updatedAt: now }
+      ? finishSession(session, now)
       : session,
   );
   appStore.save(data);
   render();
 }
 
+function finishSession(session, endAt) {
+  return {
+    ...session,
+    endAt,
+    durationMs: new Date(endAt).getTime() - new Date(session.startAt).getTime(),
+    updatedAt: endAt,
+  };
+}
+
 function handleHistoryAction(sessionId) {
-  const data = appStore.get();
-  const session = data.sessions.find((item) => item.id === sessionId);
+  const session = getHistorySessionById(sessionId);
   if (!session) {
     return;
   }
 
   if (!hasHistoryChanges(session)) {
-    uiState.historyExpandedId = null;
-    renderHistory();
+    collapseHistoryCard(sessionId);
     return;
   }
 
   saveHistoryEdit(sessionId);
+}
+
+function collapseHistoryCard(sessionId) {
+  const session = getHistorySessionById(sessionId);
+  if (!session || hasHistoryChanges(session)) {
+    return;
+  }
+
+  uiState.historyExpandedId = null;
+  renderHistory();
+}
+
+function getHistorySessionById(sessionId) {
+  const data = appStore.get();
+  return data.sessions.find((item) => item.id === sessionId) || null;
 }
 
 function hasHistoryChanges(session) {
