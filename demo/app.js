@@ -883,7 +883,7 @@ function renderProjectAdminCard(project, data, archived) {
       <div class="admin-row">
         <div>
           <strong>${escapeHtml(project.name)}</strong>
-          <p class="muted">${escapeHtml(type?.name || "未分类")} · ${project.actor === "self" ? "本人" : "Agent"} · ${archived ? "已归档" : "活跃"}</p>
+          <p class="muted admin-meta">${escapeHtml(type?.name || "未分类")} · ${project.actor === "self" ? "本人" : "Agent"} · ${archived ? "已归档" : "活跃"}</p>
         </div>
         <div class="admin-actions">
           ${archived ? "" : `<button class="inline-button" type="button" data-edit-project="${project.id}">编辑</button>`}

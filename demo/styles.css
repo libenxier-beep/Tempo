@@ -573,6 +573,12 @@ textarea {
   background: rgba(255, 255, 255, 0.82);
 }
 
+.admin-meta {
+  font-size: 12px;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
 .project-card {
   display: grid;
   gap: 12px;
