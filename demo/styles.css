@@ -725,8 +725,18 @@ textarea {
 
 .history-edit-grid {
   margin-top: 6px;
-  padding-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid rgba(24, 33, 42, 0.08);
+  gap: 10px;
+}
+
+.history-edit-grid input {
+  padding: 11px 14px;
+}
+
+.history-edit-grid textarea {
+  padding: 12px 14px;
+  min-height: 84px;
 }
 
 .inline-edit-panel {
@@ -737,7 +747,6 @@ textarea {
 }
 
 .history-edit-grid textarea {
-  min-height: 92px;
   resize: vertical;
 }
 
