@@ -446,8 +446,8 @@ textarea {
   background: var(--accent);
   border-color: transparent;
   color: #fff;
-  box-shadow: 0 10px 24px rgba(75, 159, 225, 0.2);
-  transform: translateY(-1px);
+  box-shadow: 0 14px 20px rgba(75, 159, 225, 0.24), 0 4px 8px rgba(75, 159, 225, 0.16);
+  transform: translateY(-1px) scale(1.04);
 }
 
 .primary-button {
@@ -731,7 +731,7 @@ textarea {
 }
 
 .history-edit-grid input {
-  padding: 11px 14px;
+  padding: 9px 14px;
 }
 
 .history-edit-grid textarea {

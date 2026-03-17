@@ -505,13 +505,7 @@ function renderHistory() {
   els.historyDateSearch.value = uiState.historyDateSearch;
   const runningCount = baseFilteredSessions.filter((session) => !session.endAt).length;
   const completedCount = baseFilteredSessions.length - runningCount;
-  const historyStatusLabelMap = {
-    all: "全部结果",
-    running: "进行中",
-    completed: "已结束",
-  };
   els.historySummary.innerHTML = `
-    <span class="history-current-filter">当前分类：<strong>${historyStatusLabelMap[uiState.historyStatusFilter]}</strong></span>
     <button class="pill gray summary-filter-button ${uiState.historyStatusFilter === "all" ? "is-active" : ""}" type="button" data-history-status="all">全部结果 ${baseFilteredSessions.length}</button>
     <button class="pill gray summary-filter-button ${uiState.historyStatusFilter === "running" ? "is-active" : ""}" type="button" data-history-status="running">进行中 ${runningCount}</button>
     <button class="pill gray summary-filter-button ${uiState.historyStatusFilter === "completed" ? "is-active" : ""}" type="button" data-history-status="completed">已结束 ${completedCount}</button>
