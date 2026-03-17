@@ -1,10 +1,10 @@
-const CACHE_NAME = "tempo-demo-v5";
+const CACHE_NAME = "tempo-demo-v6";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=20260316e",
-  "./app.js?v=20260316e",
-  "./manifest.webmanifest?v=20260316e",
+  "./styles.css?v=20260317a",
+  "./app.js?v=20260317a",
+  "./manifest.webmanifest?v=20260317a",
   "./icon.svg",
 ];
 
