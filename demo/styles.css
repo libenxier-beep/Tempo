@@ -254,6 +254,19 @@ textarea {
   margin-bottom: 14px;
 }
 
+.profile-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.profile-actions .inline-button.is-primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+}
+
 .panel-title-row.compact {
   margin-bottom: 10px;
 }
@@ -352,6 +365,19 @@ textarea {
   flex-wrap: wrap;
 }
 
+.manage-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.manage-toolbar .inline-button {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
 .summary-row {
   margin-top: 12px;
 }
@@ -439,6 +465,14 @@ textarea {
 
 .history-list {
   max-height: min(52vh, 460px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 4px;
+}
+
+.manage-list {
+  max-height: min(34vh, 320px);
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -563,6 +597,23 @@ textarea {
   color: #667380;
 }
 
+.history-action-button {
+  justify-content: center;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.history-action-button.history-action-save {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(75, 159, 225, 0.2);
+}
+
+.history-summary > * {
+  pointer-events: none;
+}
+
 .empty-state {
   border: 1px dashed var(--line);
   border-radius: var(--radius-lg);
@@ -584,6 +635,11 @@ textarea {
 .stack-card {
   display: grid;
   gap: 12px;
+}
+
+.history-summary {
+  width: 100%;
+  text-align: left;
 }
 
 .inline-edit-panel {

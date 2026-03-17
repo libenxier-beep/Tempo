@@ -52,6 +52,7 @@ const els = {
   manageTitle: document.querySelector("#manageTitle"),
   manageNavLabel: document.querySelector("#manageNavLabel"),
   nicknameForm: document.querySelector("#nicknameForm"),
+  profileCancelButton: document.querySelector("#profileCancelButton"),
   profileActionButton: document.querySelector("#profileActionButton"),
   nicknameInput: document.querySelector("#nicknameInput"),
   mottoInput: document.querySelector("#mottoInput"),
@@ -159,6 +160,7 @@ function bindEvents() {
   });
 
   els.nicknameForm.addEventListener("submit", handleNicknameSubmit);
+  els.profileCancelButton.addEventListener("click", cancelProfileEdit);
   els.profileActionButton.addEventListener("click", handleProfileAction);
   els.nicknameInput.addEventListener("input", syncProfileActionButton);
   els.mottoInput.addEventListener("input", syncProfileActionButton);
@@ -542,15 +544,39 @@ function renderHistory() {
   }
 
   els.historyList.innerHTML = sessions.map((session) => renderHistoryCard(session, data)).join("");
-  els.historyList.querySelectorAll("[data-history-toggle]").forEach((button) => {
-    button.addEventListener("click", () => {
-      uiState.historyExpandedId = uiState.historyExpandedId === button.dataset.historyToggle ? null : button.dataset.historyToggle;
+  els.historyList.querySelectorAll("[data-history-summary]").forEach((card) => {
+    const toggle = () => {
+      uiState.historyExpandedId = uiState.historyExpandedId === card.dataset.historySummary ? null : card.dataset.historySummary;
       renderHistory();
+    };
+    card.addEventListener("click", toggle);
+
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        toggle();
+      }
     });
   });
-  els.historyList.querySelectorAll("[data-save-history]").forEach((button) => {
-    button.addEventListener("click", () => saveHistoryEdit(button.dataset.saveHistory));
+  els.historyList.querySelectorAll(".history-edit-grid").forEach((panel) => {
+    panel.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
   });
+  els.historyList.querySelectorAll("[data-history-edit-input]").forEach((field) => {
+    field.addEventListener("input", () => syncHistoryActionButton(field.dataset.historyEditInput));
+    field.addEventListener("change", () => syncHistoryActionButton(field.dataset.historyEditInput));
+  });
+  els.historyList.querySelectorAll("[data-history-action]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      handleHistoryAction(button.dataset.historyAction);
+    });
+  });
+  if (uiState.historyExpandedId) {
+    syncHistoryActionButton(uiState.historyExpandedId);
+  }
 }
 
 function syncHistoryDateInput() {
@@ -599,41 +625,55 @@ function renderHistoryCard(session, data) {
   const durationText = session.endAt ? formatDuration(getSessionDurationMs(session)) : `进行中 · ${formatDuration(getSessionDurationMs(session))}`;
   return `
     <article class="history-card ${expanded ? "expanded" : ""}">
-      <button class="history-summary" type="button" data-history-toggle="${session.id}">
+      <div class="history-summary" role="button" tabindex="0" data-history-summary="${session.id}">
         <div class="history-row-top">
           <span class="history-title">${escapeHtml(project?.name || "未知项目")}</span>
           <span class="pill ${project?.actor === "agent" ? "gray" : ""}">${project?.actor === "self" ? "本人" : "Agent"}</span>
         </div>
-        <div class="history-field-list">
-          <div class="history-field">
-            <span class="history-field-label">开始时间</span>
-            <span class="history-field-value">${formatDateTime(session.startAt)}</span>
-          </div>
-          <div class="history-field">
-            <span class="history-field-label">结束时间</span>
-            <span class="history-field-value">${session.endAt ? formatDateTime(session.endAt) : "进行中"}</span>
-          </div>
-          <div class="history-field">
-            <span class="history-field-label">耗时</span>
-            <span class="history-field-value">${durationText}</span>
-          </div>
-          <div class="history-field">
-            <span class="history-field-label">项目类型</span>
-            <span class="history-field-value">${escapeHtml(type?.name || "未分类")}</span>
-          </div>
-        </div>
-      </button>
+        ${
+          expanded
+            ? ""
+            : `
+              <div class="history-field-list">
+                <div class="history-field">
+                  <span class="history-field-label">开始时间</span>
+                  <span class="history-field-value">${formatDateTime(session.startAt)}</span>
+                </div>
+                <div class="history-field">
+                  <span class="history-field-label">结束时间</span>
+                  <span class="history-field-value">${session.endAt ? formatDateTime(session.endAt) : "进行中"}</span>
+                </div>
+                <div class="history-field">
+                  <span class="history-field-label">耗时</span>
+                  <span class="history-field-value">${durationText}</span>
+                </div>
+                <div class="history-field">
+                  <span class="history-field-label">项目类型</span>
+                  <span class="history-field-value">${escapeHtml(type?.name || "未分类")}</span>
+                </div>
+              </div>
+            `
+        }
+      </div>
       ${
         expanded
           ? `
             <div class="history-edit-grid">
+              <div class="history-field">
+                <span class="history-field-label">项目类型</span>
+                <span class="history-field-value">${escapeHtml(type?.name || "未分类")}</span>
+              </div>
+              <div class="history-field">
+                <span class="history-field-label">执行主体</span>
+                <span class="history-field-value">${project?.actor === "self" ? "本人" : "Agent"}</span>
+              </div>
               <label class="field-label" for="history-start-${session.id}">开始时间</label>
-              <input id="history-start-${session.id}" type="datetime-local" value="${toLocalInputValue(session.startAt)}" />
+              <input id="history-start-${session.id}" type="datetime-local" value="${toLocalInputValue(session.startAt)}" data-history-edit-input="${session.id}" />
               <label class="field-label" for="history-end-${session.id}">结束时间</label>
-              <input id="history-end-${session.id}" type="datetime-local" value="${session.endAt ? toLocalInputValue(session.endAt) : ""}" />
+              <input id="history-end-${session.id}" type="datetime-local" value="${session.endAt ? toLocalInputValue(session.endAt) : ""}" data-history-edit-input="${session.id}" />
               <label class="field-label" for="history-note-${session.id}">备注</label>
-              <textarea id="history-note-${session.id}" placeholder="补充备注，让以后回看时看得懂">${escapeHtml(session.note || "")}</textarea>
-              <button class="primary-button" type="button" data-save-history="${session.id}">保存修改</button>
+              <textarea id="history-note-${session.id}" placeholder="补充备注，让以后回看时看得懂" data-history-edit-input="${session.id}">${escapeHtml(session.note || "")}</textarea>
+              <button class="pill gray history-action-button" type="button" data-history-action="${session.id}">取消</button>
             </div>
           `
           : ""
@@ -927,17 +967,26 @@ function syncProfileActionButton() {
   const currentMotto = data.profile?.motto || "";
 
   if (!uiState.profileEditMode) {
+    els.profileCancelButton.classList.add("hidden");
     els.profileActionButton.textContent = "编辑";
     els.profileActionButton.disabled = false;
+    els.profileActionButton.classList.remove("is-primary");
     return;
   }
 
+  els.profileCancelButton.classList.remove("hidden");
   const hasChanges =
     els.nicknameInput.value.trim() !== currentNickname ||
     els.mottoInput.value.trim() !== currentMotto;
 
   els.profileActionButton.textContent = "保存信息";
   els.profileActionButton.disabled = !hasChanges;
+  els.profileActionButton.classList.toggle("is-primary", hasChanges);
+}
+
+function cancelProfileEdit() {
+  uiState.profileEditMode = false;
+  renderManage();
 }
 
 function handleTypeSubmit(event) {
@@ -1259,6 +1308,51 @@ function stopSession(sessionId) {
   render();
 }
 
+function handleHistoryAction(sessionId) {
+  const data = appStore.get();
+  const session = data.sessions.find((item) => item.id === sessionId);
+  if (!session) {
+    return;
+  }
+
+  if (!hasHistoryChanges(session)) {
+    uiState.historyExpandedId = null;
+    renderHistory();
+    return;
+  }
+
+  saveHistoryEdit(sessionId);
+}
+
+function hasHistoryChanges(session) {
+  const startInput = document.querySelector(`#history-start-${CSS.escape(session.id)}`);
+  const endInput = document.querySelector(`#history-end-${CSS.escape(session.id)}`);
+  const noteInput = document.querySelector(`#history-note-${CSS.escape(session.id)}`);
+  if (!startInput || !endInput || !noteInput) {
+    return false;
+  }
+
+  return (
+    startInput.value !== toLocalInputValue(session.startAt) ||
+    endInput.value !== (session.endAt ? toLocalInputValue(session.endAt) : "") ||
+    noteInput.value.trim() !== (session.note || "").trim()
+  );
+}
+
+function syncHistoryActionButton(sessionId) {
+  const data = appStore.get();
+  const session = data.sessions.find((item) => item.id === sessionId);
+  const button = document.querySelector(`[data-history-action="${CSS.escape(sessionId)}"]`);
+  if (!session || !button) {
+    return;
+  }
+
+  const hasChanges = hasHistoryChanges(session);
+  button.textContent = hasChanges ? "保存修改" : "取消";
+  button.classList.toggle("gray", !hasChanges);
+  button.classList.toggle("history-action-save", hasChanges);
+}
+
 function saveHistoryEdit(sessionId) {
   const startInput = document.querySelector(`#history-start-${CSS.escape(sessionId)}`);
   const endInput = document.querySelector(`#history-end-${CSS.escape(sessionId)}`);
@@ -1555,11 +1649,7 @@ function startTimer() {
       if (isEditingHomeSearch) {
         return;
       }
-      const isEditingHistory =
-        uiState.currentView === "history" &&
-        uiState.historyExpandedId &&
-        (activeTag === "TEXTAREA" || activeTag === "INPUT");
-      if (isEditingHistory) {
+      if (uiState.currentView === "history" && uiState.historyExpandedId) {
         return;
       }
       if (uiState.currentView === "home") {

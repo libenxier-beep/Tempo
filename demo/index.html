@@ -204,7 +204,10 @@
                 <p class="eyebrow">个人信息</p>
                 <h2>昵称与座右铭</h2>
               </div>
-              <button id="profileActionButton" class="inline-button" type="button">编辑</button>
+              <div class="profile-actions">
+                <button id="profileActionButton" class="inline-button" type="button">编辑</button>
+                <button id="profileCancelButton" class="inline-button hidden" type="button">取消</button>
+              </div>
             </div>
             <form id="nicknameForm" class="stack-form">
               <input id="nicknameInput" type="text" placeholder="输入你的昵称" maxlength="24" required />
@@ -220,7 +223,7 @@
                 <h2>先把骨架管住</h2>
               </div>
             </div>
-            <div class="archive-toggle-row">
+            <div class="manage-toolbar">
               <button id="toggleTypeCreateButton" class="inline-button" type="button">新增项目类型</button>
             </div>
             <form id="typeForm" class="stack-form hidden">
@@ -228,7 +231,7 @@
               <button class="primary-button" type="submit">保存新项目类型</button>
             </form>
             <div id="typeConstraintHint" class="inline-hint"></div>
-            <div id="typeList" class="stack-list"></div>
+            <div id="typeList" class="stack-list manage-list"></div>
           </section>
 
           <section class="panel">
@@ -238,8 +241,9 @@
                 <h2>活跃和归档分开看</h2>
               </div>
             </div>
-            <div class="archive-toggle-row">
+            <div class="manage-toolbar">
               <button id="toggleProjectCreateButton" class="inline-button" type="button">新增具体项目</button>
+              <button id="toggleArchivedButton" class="inline-button" type="button">查看已归档项目</button>
             </div>
             <form id="projectForm" class="stack-form hidden">
               <select id="projectTypeSelect" required></select>
@@ -250,12 +254,8 @@
               </select>
               <button class="primary-button" type="submit">保存新具体项目</button>
             </form>
-
-            <div class="archive-toggle-row">
-              <button id="toggleArchivedButton" class="inline-button" type="button">查看已归档项目</button>
-            </div>
-            <div id="projectAdminList" class="stack-list"></div>
-            <div id="archivedProjectList" class="stack-list hidden"></div>
+            <div id="projectAdminList" class="stack-list manage-list"></div>
+            <div id="archivedProjectList" class="stack-list manage-list hidden"></div>
           </section>
         </section>
       </main>
