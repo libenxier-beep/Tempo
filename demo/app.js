@@ -338,30 +338,15 @@ function renderHome() {
 
 function renderSearchFeedback(filteredProjects, query) {
   if (!query) {
-    els.searchFeedback.innerHTML = `<span class="pill gray">当前展示全部可用项目</span>`;
+    els.searchFeedback.innerHTML = "";
     return;
   }
 
-  const directStartButton =
-    filteredProjects.length === 1
-      ? `<button id="startSearchResultButton" class="inline-button" type="button">直接开始</button>`
-      : "";
+  const directStartButton = filteredProjects.length === 1
+    ? `<button id="startSearchResultButton" class="inline-button" type="button">直接开始</button>`
+    : "";
 
-  els.searchFeedback.innerHTML = filteredProjects.length
-    ? `
-      ${directStartButton}
-      <button id="clearSearchButton" class="inline-button" type="button">清空</button>
-    `
-    : `
-      <span class="pill gray">没有搜到“${escapeHtml(query)}”</span>
-      <button id="clearSearchButton" class="inline-button" type="button">清空</button>
-    `;
-
-  els.searchFeedback.querySelector("#clearSearchButton").addEventListener("click", () => {
-    uiState.projectSearch = "";
-    els.projectSearch.value = "";
-    renderHome();
-  });
+  els.searchFeedback.innerHTML = directStartButton;
 
   const startButton = els.searchFeedback.querySelector("#startSearchResultButton");
   if (startButton) {
@@ -456,17 +441,17 @@ function renderProjectList(projects, data) {
 function renderHomeEmptyCreate(data, filteredProjects, query) {
   const types = getActiveTypes(data);
   if (!query) {
-    els.homeEmptyCreate.innerHTML = `<div class="empty-state">输入项目名后，这里会在搜索无结果时显示首页轻量快速创建入口。</div>`;
+    els.homeEmptyCreate.innerHTML = "";
     return;
   }
 
   if (filteredProjects.length) {
-    els.homeEmptyCreate.innerHTML = `<div class="empty-state">已找到匹配项目。完整项目管理仍归“我”页。</div>`;
+    els.homeEmptyCreate.innerHTML = "";
     return;
   }
 
   if (!types.length) {
-    els.homeEmptyCreate.innerHTML = `<div class="empty-state">当前还没有项目类型，无法在首页快速创建。请先到“我”页维护项目类型。</div>`;
+    els.homeEmptyCreate.innerHTML = "";
     return;
   }
 

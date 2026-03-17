@@ -63,12 +63,16 @@
             <div class="panel-title-row compact">
               <div>
                 <p class="eyebrow">搜索区</p>
-                <h2>找项目，直接开跑</h2>
               </div>
             </div>
             <label class="search-box">
+              <span class="search-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M10.5 4.5a6 6 0 1 0 0 12a6 6 0 0 0 0-12Zm0-1.5a7.5 7.5 0 1 1 4.73 13.32l4.22 4.21a.75.75 0 1 1-1.06 1.06l-4.21-4.22A7.5 7.5 0 0 1 10.5 3Z" fill="currentColor"/>
+                </svg>
+              </span>
               <span class="sr-only">搜索具体项目</span>
-              <input id="projectSearch" type="search" placeholder="搜索具体项目，找不到就在首页轻量创建" />
+              <input id="projectSearch" type="search" placeholder="搜索具体项目" />
             </label>
             <div id="searchFeedback" class="summary-row"></div>
             <div id="homeEmptyCreate"></div>
@@ -92,25 +96,15 @@
             <div id="runningAgentTasks" class="stack-list"></div>
           </section>
 
-          <section class="panel">
+          <section class="panel project-list-panel">
             <div class="panel-title-row">
               <div>
-                <p class="eyebrow">项目列表控制区</p>
-                <h2>排序模式</h2>
+                <p class="eyebrow">项目列表区</p>
+                <h2>点击即可开始</h2>
               </div>
               <div class="segmented-control">
                 <button id="recentModeButton" class="segment is-active" type="button">最近使用</button>
                 <button id="frequentModeButton" class="segment" type="button">最常使用</button>
-              </div>
-            </div>
-            <p class="section-caption">首页只负责项目发现、开始 / 停止任务和轻量快速创建。</p>
-          </section>
-
-          <section class="panel">
-            <div class="panel-title-row compact">
-              <div>
-                <p class="eyebrow">项目列表区</p>
-                <h2>可点击开始的具体项目</h2>
               </div>
             </div>
             <div id="projectList" class="project-list"></div>
