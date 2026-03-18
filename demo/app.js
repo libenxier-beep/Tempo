@@ -1,4 +1,5 @@
 const STORAGE_KEY = "time-ledger-mobile-demo-v4";
+const AGENT_API_BASE = "http://127.0.0.1:8787/api";
 
 const uiState = {
   currentView: "home",
@@ -101,9 +102,12 @@ const appStore = {
   save(nextData) {
     nextData.updatedAt = new Date().toISOString();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+    void syncStateToAgentApi(normalizeData(nextData));
   },
   reset() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(createSeedData()));
+    const seed = createSeedData();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
+    void syncStateToAgentApi(seed);
   },
 };
 
@@ -139,10 +143,11 @@ function createId() {
   return `tempo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-init();
+void init();
 
-function init() {
+async function init() {
   ensureSeedData();
+  await hydrateStateFromAgentApi();
   bindEvents();
   syncNetworkBanner(navigator.onLine);
   registerServiceWorker();
@@ -2326,6 +2331,51 @@ function startTimer() {
 function ensureSeedData() {
   if (!localStorage.getItem(STORAGE_KEY)) {
     appStore.reset();
+  }
+}
+
+async function hydrateStateFromAgentApi() {
+  if (!isLocalDevHost() || typeof fetch !== "function") {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${AGENT_API_BASE}/state`);
+    if (!response.ok) {
+      return;
+    }
+
+    const payload = await response.json();
+    if (!payload?.ok || !payload.data) {
+      return;
+    }
+
+    const remoteState = normalizeData(payload.data);
+    const localRaw = localStorage.getItem(STORAGE_KEY);
+    const localState = localRaw ? normalizeData(JSON.parse(localRaw)) : null;
+    if (!localState || new Date(remoteState.updatedAt || 0).getTime() > new Date(localState.updatedAt || 0).getTime()) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(remoteState));
+    }
+  } catch {
+    // Keep localhost usable even when the agent API is not running.
+  }
+}
+
+async function syncStateToAgentApi(state) {
+  if (!isLocalDevHost() || typeof fetch !== "function") {
+    return;
+  }
+
+  try {
+    await fetch(`${AGENT_API_BASE}/state/import`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ state }),
+    });
+  } catch {
+    // Keep the frontend usable even if the local agent API is offline.
   }
 }
 
