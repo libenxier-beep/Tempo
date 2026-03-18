@@ -61,16 +61,21 @@ http://127.0.0.1:8787
 
 ## 当前本地 API 能力
 
-当前第一阶段已经可用的接口：
+当前已经可用的本地接口：
 
 - `GET /api/health`
 - `GET /api/state`
 - `POST /api/state/import`
+- `GET /api/project-types`
+- `POST /api/project-types`
 - `GET /api/projects`
+- `POST /api/projects`
 - `GET /api/sessions`
 - `GET /api/running`
+- `GET /api/dashboard/summary`
 - `POST /api/sessions/start`
 - `POST /api/sessions/stop`
+- `PATCH /api/dashboard/settings`
 - `PATCH /api/sessions/:id`
 
 详细说明见：
@@ -81,11 +86,12 @@ http://127.0.0.1:8787
 
 - localhost 下前端启动时，会尝试从本地 agent API 拉最新状态
 - 前端本地保存状态时，也会尝试把当前状态同步回 agent API
-- 当前这层同步还是第一阶段桥接，不是完整双向实时同步系统
+- localhost 打开页面后，会每隔几秒轻量轮询一次 agent API，把更新后的状态拉回前端
+- 当前这层同步还是第一阶段桥接，不是完整双向实时同步系统，也还没有严格冲突处理
 
 ## 当前限制
 
 1. 还没有云同步或登录。
 2. 还没有推送提醒、桌面组件、通知栏控制。
 3. 项目删除目前按“归档”处理，保留历史记录。
-4. agent API 目前还是第一阶段，前端主数据源仍以 `localStorage` 为主，不是完全 API-first。
+4. agent API 目前还是本地优先的轻后端，前端主数据源仍以 `localStorage` 为主，不是完全 API-first。

@@ -129,3 +129,4 @@ Append new durable preferences and decisions here as collaboration evolves.
 - 2026-03-16: When a meaningful milestone is reached, proactively ask the user for authorization before creating a Git commit.
 - 2026-03-16: In this project, the main Codex session normally acts as the Terminal D-style lead; separate helper terminals are optional only when parallel work is useful.
 - 2026-03-17: Default release flow is localhost-first; user verifies locally first, then Codex pushes the exact same code online only after explicit approval.
+- 2026-03-18: Before creating a Git commit for changes in this project, first补充或更新 `README.md` to reflect the current shipped capability.

@@ -9,3 +9,5 @@ dist/
 
 tmp/
 .tools/
+backend/__pycache__/
+backend/state.json

@@ -76,6 +76,10 @@ def find_project(state: dict[str, Any], project_id: str) -> dict[str, Any] | Non
     return next((project for project in state["projects"] if project["id"] == project_id), None)
 
 
+def find_type(state: dict[str, Any], type_id: str) -> dict[str, Any] | None:
+    return next((project_type for project_type in state["projectTypes"] if project_type["id"] == type_id), None)
+
+
 def find_session(state: dict[str, Any], session_id: str) -> dict[str, Any] | None:
     return next((session for session in state["sessions"] if session["id"] == session_id), None)
 
@@ -106,11 +110,106 @@ def finish_session(session: dict[str, Any], finished_at: str | None = None) -> N
 
 def serialize_session(state: dict[str, Any], session: dict[str, Any]) -> dict[str, Any]:
     project = find_project(state, session["projectId"])
-    project_type = next((item for item in state["projectTypes"] if item["id"] == project["typeId"]), None) if project else None
+    project_type = find_type(state, project["typeId"]) if project else None
     return {
         **session,
         "project": project,
         "projectType": project_type,
+    }
+
+
+def serialize_project(state: dict[str, Any], project: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **project,
+        "projectType": find_type(state, project["typeId"]),
+    }
+
+
+def create_project_type(state: dict[str, Any], name: str) -> dict[str, Any]:
+    normalized_name = name.strip()
+    if not normalized_name:
+        raise ValueError("type_name_required")
+    if any(item["name"] == normalized_name for item in state["projectTypes"]):
+        raise ValueError("type_name_conflict")
+
+    now = now_iso()
+    project_type = {
+        "id": create_id(),
+        "name": normalized_name,
+        "sortOrder": len(state["projectTypes"]),
+        "createdAt": now,
+        "updatedAt": now,
+    }
+    state["projectTypes"].append(project_type)
+    save_state(state)
+    return project_type
+
+
+def create_project(state: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+    name = str(payload.get("name", "")).strip()
+    type_id = payload.get("typeId", "")
+    actor = payload.get("actor", "")
+    if not name:
+        raise ValueError("project_name_required")
+    if actor not in {"self", "agent"}:
+        raise ValueError("invalid_actor")
+    project_type = find_type(state, type_id)
+    if not project_type:
+        raise ValueError("type_not_found")
+    if any(item["typeId"] == type_id and item["name"] == name and not item["archived"] for item in state["projects"]):
+        raise ValueError("project_name_conflict")
+
+    now = now_iso()
+    project = {
+        "id": create_id(),
+        "typeId": type_id,
+        "name": name,
+        "actor": actor,
+        "archived": False,
+        "archivedAt": None,
+        "usageCount": 0,
+        "lastUsedAt": None,
+        "sortOrder": len(state["projects"]),
+        "createdAt": now,
+        "updatedAt": now,
+    }
+    state["projects"].append(project)
+    save_state(state)
+    return serialize_project(state, project)
+
+
+def update_dashboard_settings(state: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+    daily_target_hours = float(payload.get("dailyTargetHours", 0))
+    hourly_rate = float(payload.get("hourlyRate", 0))
+    debt_start_date = str(payload.get("debtStartDate", "")).strip()
+    if daily_target_hours <= 0:
+        raise ValueError("invalid_daily_target_hours")
+    if hourly_rate < 0:
+        raise ValueError("invalid_hourly_rate")
+    if not debt_start_date:
+        raise ValueError("debt_start_date_required")
+
+    state["dashboardSettings"] = {
+        "dailyTargetHours": daily_target_hours,
+        "hourlyRate": hourly_rate,
+        "debtStartDate": debt_start_date,
+    }
+    save_state(state)
+    return state["dashboardSettings"]
+
+
+def build_dashboard_summary(state: dict[str, Any]) -> dict[str, Any]:
+    running_sessions = get_running_sessions(state)
+    completed_sessions = [session for session in state["sessions"] if session["endAt"] is not None]
+    total_duration_ms = sum(int(session.get("durationMs") or 0) for session in completed_sessions)
+    return {
+        "projectTypeCount": len(state["projectTypes"]),
+        "projectCount": len(state["projects"]),
+        "activeProjectCount": len([project for project in state["projects"] if not project["archived"]]),
+        "runningSessionCount": len(running_sessions),
+        "completedSessionCount": len(completed_sessions),
+        "totalTrackedHours": round(total_duration_ms / 3600000, 2),
+        "dashboardSettings": state["dashboardSettings"],
     }
 
 
@@ -217,7 +316,11 @@ class TempoApiHandler(BaseHTTPRequestHandler):
             if archived_param is not None:
                 archived = archived_param.lower() == "true"
                 projects = [item for item in projects if bool(item["archived"]) is archived]
-            json_response(self, HTTPStatus.OK, {"ok": True, "data": projects})
+            json_response(self, HTTPStatus.OK, {"ok": True, "data": [serialize_project(state, project) for project in projects]})
+            return
+
+        if parsed.path == "/api/project-types":
+            json_response(self, HTTPStatus.OK, {"ok": True, "data": state["projectTypes"]})
             return
 
         if parsed.path == "/api/sessions":
@@ -243,6 +346,10 @@ class TempoApiHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if parsed.path == "/api/dashboard/summary":
+            json_response(self, HTTPStatus.OK, {"ok": True, "data": build_dashboard_summary(state)})
+            return
+
         json_response(self, HTTPStatus.NOT_FOUND, {"ok": False, "error": "not_found"})
 
     def do_POST(self) -> None:
@@ -255,6 +362,16 @@ class TempoApiHandler(BaseHTTPRequestHandler):
                 imported = normalize_imported_state(payload.get("state") or {})
                 save_state(imported)
                 json_response(self, HTTPStatus.OK, {"ok": True, "data": imported})
+                return
+
+            if parsed.path == "/api/project-types":
+                project_type = create_project_type(state, str(payload.get("name", "")))
+                json_response(self, HTTPStatus.CREATED, {"ok": True, "data": project_type})
+                return
+
+            if parsed.path == "/api/projects":
+                project = create_project(state, payload)
+                json_response(self, HTTPStatus.CREATED, {"ok": True, "data": project})
                 return
 
             if parsed.path == "/api/sessions/start":
@@ -275,6 +392,14 @@ class TempoApiHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         state = load_state()
         payload = self._read_json_body()
+
+        if parsed.path == "/api/dashboard/settings":
+            try:
+                settings = update_dashboard_settings(state, payload)
+                json_response(self, HTTPStatus.OK, {"ok": True, "data": settings})
+            except ValueError as exc:
+                json_response(self, HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
+            return
 
         if not parsed.path.startswith("/api/sessions/"):
             json_response(self, HTTPStatus.NOT_FOUND, {"ok": False, "error": "not_found"})

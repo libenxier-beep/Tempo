@@ -133,6 +133,7 @@ function normalizeDashboardSettings(settings) {
 
 let timerHandle = null;
 let pendingServiceWorker = null;
+let agentSyncTimerHandle = null;
 const DASHBOARD_TYPE_COLORS = ["#2f7dff", "#4dbf92", "#f3a446", "#db6c86", "#6f7de6", "#8bb8ff"];
 
 function createId() {
@@ -153,6 +154,7 @@ async function init() {
   registerServiceWorker();
   render();
   startTimer();
+  startAgentSyncTimer();
 }
 
 function bindEvents() {
@@ -2336,18 +2338,18 @@ function ensureSeedData() {
 
 async function hydrateStateFromAgentApi() {
   if (!isLocalDevHost() || typeof fetch !== "function") {
-    return;
+    return false;
   }
 
   try {
     const response = await fetch(`${AGENT_API_BASE}/state`);
     if (!response.ok) {
-      return;
+      return false;
     }
 
     const payload = await response.json();
     if (!payload?.ok || !payload.data) {
-      return;
+      return false;
     }
 
     const remoteState = normalizeData(payload.data);
@@ -2355,10 +2357,13 @@ async function hydrateStateFromAgentApi() {
     const localState = localRaw ? normalizeData(JSON.parse(localRaw)) : null;
     if (!localState || new Date(remoteState.updatedAt || 0).getTime() > new Date(localState.updatedAt || 0).getTime()) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(remoteState));
+      return true;
     }
   } catch {
     // Keep localhost usable even when the agent API is not running.
   }
+
+  return false;
 }
 
 async function syncStateToAgentApi(state) {
@@ -2377,6 +2382,25 @@ async function syncStateToAgentApi(state) {
   } catch {
     // Keep the frontend usable even if the local agent API is offline.
   }
+}
+
+function startAgentSyncTimer() {
+  clearInterval(agentSyncTimerHandle);
+  if (!isLocalDevHost()) {
+    return;
+  }
+
+  agentSyncTimerHandle = window.setInterval(() => {
+    if (document.hidden) {
+      return;
+    }
+
+    void hydrateStateFromAgentApi().then((didHydrate) => {
+      if (didHydrate) {
+        render();
+      }
+    });
+  }, 4000);
 }
 
 function createSeedData() {

@@ -10,7 +10,7 @@
 - 停止任务
 - 修改一条记录
 
-第一阶段不直接改前端主数据源，先把 agent 调用链单独跑通。
+第一阶段不直接改前端主数据源，先把 agent 调用链单独跑通。当前已经进入“第一阶段补强版”。
 
 ## 方案
 
@@ -28,6 +28,10 @@
 ### `GET /api/state`
 
 返回完整状态，便于调试。
+
+### `GET /api/project-types`
+
+查询全部项目类型。
 
 ### `POST /api/state/import`
 
@@ -62,6 +66,34 @@
 
 - `archived=true|false`
 
+返回结果会补上所属 `projectType`，便于 agent 直接使用。
+
+### `POST /api/project-types`
+
+创建一个新的项目类型。
+
+请求体：
+
+```json
+{
+  "name": "工作"
+}
+```
+
+### `POST /api/projects`
+
+创建一个新的具体项目。
+
+请求体：
+
+```json
+{
+  "name": "产品设计",
+  "typeId": "...",
+  "actor": "self"
+}
+```
+
 ### `GET /api/sessions`
 
 查询全部记录。
@@ -73,6 +105,18 @@
 ### `GET /api/running`
 
 查询当前运行中的全部任务。
+
+### `GET /api/dashboard/summary`
+
+返回轻量仪表盘摘要，当前包含：
+
+- 项目类型数
+- 项目总数
+- 活跃项目数
+- 运行中任务数
+- 已完成记录数
+- 累计已记录小时数
+- 当前仪表盘设置
 
 ### `POST /api/sessions/start`
 
@@ -117,9 +161,23 @@
 }
 ```
 
+### `PATCH /api/dashboard/settings`
+
+修改仪表盘相关设置。
+
+请求体示例：
+
+```json
+{
+  "dailyTargetHours": 8,
+  "hourlyRate": 120,
+  "debtStartDate": "2026-03-18"
+}
+```
+
 ## 下一阶段
 
-第一阶段完成后，再做这两件事：
+下一阶段，再做这两件事：
 
 1. 把前端从 `localStorage` 逐步切到这层 API
 2. 再包一层 agent 工具协议，例如 MCP 或固定工具函数
