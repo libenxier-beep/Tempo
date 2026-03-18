@@ -158,98 +158,147 @@
             </div>
           </header>
 
+          <section class="panel dashboard-hero-panel">
+            <div class="dashboard-hero-copy">
+              <p class="eyebrow">Work Ledger</p>
+              <h2>投入不会消失，它会沉淀成盈余或负债。</h2>
+            </div>
+            <div id="dashboardDebtHero"></div>
+          </section>
+
           <section class="panel">
+            <div id="dashboardTodayProgress"></div>
+          </section>
+
+          <section class="panel dashboard-trend-panel">
             <div class="panel-title-row">
               <div>
-                <p class="eyebrow">周期切换区</p>
-                <h2>日 / 周 / 月</h2>
-              </div>
-              <div class="segmented-control">
-                <button class="segment period-segment is-active" data-period="day" type="button">日</button>
-                <button class="segment period-segment" data-period="week" type="button">周</button>
-                <button class="segment period-segment" data-period="month" type="button">月</button>
+                <p class="eyebrow">趋势</p>
+                <h2>工时的走向</h2>
               </div>
             </div>
-            <div id="dashboardMetrics" class="metric-grid"></div>
-            <div class="dashboard-columns">
-              <div>
-                <h3 class="section-subtitle">项目类型分布</h3>
-                <div id="dashboardTypeBreakdown" class="stack-list"></div>
+            <div class="dashboard-toolbar">
+              <div id="dashboardChartModeControls" class="segmented-control dashboard-mode-control">
+                <button class="segment dashboard-mode-button is-active" data-chart-mode="line" type="button">折线</button>
+                <button class="segment dashboard-mode-button" data-chart-mode="bar" type="button">柱状</button>
               </div>
-              <div>
-                <h3 class="section-subtitle">趋势</h3>
-                <div id="dashboardTrend" class="stack-list"></div>
+              <span class="dashboard-toolbar-slash" aria-hidden="true">/</span>
+              <div id="dashboardRangeControls" class="segmented-control dashboard-range-control">
+                <button class="segment dashboard-range-button is-active" data-range="7d" type="button">7天</button>
+                <button class="segment dashboard-range-button" data-range="30d" type="button">30天</button>
+                <button class="segment dashboard-range-button" data-range="180d" type="button">180天</button>
+                <button class="segment dashboard-range-button" data-range="1y" type="button">1年</button>
+                <button class="segment dashboard-range-button" data-range="3y" type="button">3年</button>
               </div>
             </div>
+            <div id="dashboardTrend"></div>
+          </section>
+
+          <section class="panel">
+            <button id="dashboardTypeToggle" class="dashboard-collapse-button" type="button" aria-expanded="false">
+              <span>
+                <p class="eyebrow">项目类型分布</p>
+                <strong>点开看时间都花去哪了</strong>
+              </span>
+              <span id="dashboardTypeToggleLabel" class="muted">展开</span>
+            </button>
+            <div id="dashboardTypeBreakdown" class="hidden"></div>
           </section>
         </section>
 
         <section id="meView" class="view" data-view="me">
-          <header class="topbar">
-            <div>
+          <header class="topbar manage-topbar">
+            <div class="manage-header-stack">
               <p class="eyebrow">Manage</p>
-              <h1 id="manageTitle">我</h1>
+              <h1 class="sr-only">Manage</h1>
+              <form id="manageNicknameForm" class="manage-title-form">
+                <label class="sr-only" for="manageTitleInput">修改昵称</label>
+                <input id="manageTitleInput" class="manage-title-input" type="text" placeholder="输入昵称" maxlength="24" required />
+                <button id="manageTitleConfirmButton" class="inline-button manage-title-confirm hidden" type="submit">确认</button>
+              </form>
+              <div id="manageTitleHint" class="inline-hint manage-title-hint"></div>
             </div>
           </header>
 
-          <section class="panel">
-            <div class="panel-title-row">
-              <div>
-                <p class="eyebrow">个人信息</p>
-                <h2>昵称与座右铭</h2>
+          <section class="manage-accordion-stack">
+            <article class="manage-accordion-item">
+              <button id="dashboardSettingsToggle" class="manage-accordion-pill" type="button" aria-expanded="false">
+                <span>仪表盘相关设置</span>
+                <span class="manage-accordion-icon" aria-hidden="true"></span>
+              </button>
+              <div id="dashboardSettingsSection" class="panel manage-accordion-panel hidden">
+                <div class="panel-title-row compact">
+                  <div>
+                    <p class="eyebrow">仪表盘相关设置</p>
+                    <h2>先把工时的账本规则定清楚</h2>
+                  </div>
+                  <div class="profile-actions">
+                    <button id="dashboardSettingsActionButton" class="inline-button" type="button">编辑</button>
+                    <button id="dashboardSettingsCancelButton" class="inline-button hidden" type="button">取消</button>
+                  </div>
+                </div>
+                <form id="dashboardSettingsForm" class="stack-form">
+                  <input id="dashboardTargetHoursInput" type="number" min="0.5" step="0.5" placeholder="每日目标工时，例如 8" required />
+                  <input id="dashboardHourlyRateInput" type="number" min="0" step="1" placeholder="预估时薪，例如 120" required />
+                  <input id="dashboardDebtStartDateInput" type="date" required />
+                </form>
+                <div id="dashboardSettingsHint" class="inline-hint"></div>
               </div>
-              <div class="profile-actions">
-                <button id="profileActionButton" class="inline-button" type="button">编辑</button>
-                <button id="profileCancelButton" class="inline-button hidden" type="button">取消</button>
-              </div>
-            </div>
-            <form id="nicknameForm" class="stack-form">
-              <input id="nicknameInput" type="text" placeholder="输入你的昵称" maxlength="24" required />
-              <textarea id="mottoInput" placeholder="写一句座右铭，提醒自己如何分配注意力" maxlength="80"></textarea>
-            </form>
-            <div id="nicknameHint" class="inline-hint"></div>
-          </section>
+            </article>
 
-          <section class="panel">
-            <div class="panel-title-row">
-              <div>
-                <p class="eyebrow">项目类型管理区</p>
-                <h2>先把骨架管住</h2>
+            <article class="manage-accordion-item">
+              <button id="typeSectionToggle" class="manage-accordion-pill" type="button" aria-expanded="false">
+                <span>项目类型管理区</span>
+                <span class="manage-accordion-icon" aria-hidden="true"></span>
+              </button>
+              <div id="typeSection" class="panel manage-accordion-panel hidden">
+                <div class="panel-title-row compact">
+                  <div>
+                    <p class="eyebrow">项目类型管理区</p>
+                    <h2>先把骨架管住</h2>
+                  </div>
+                </div>
+                <div class="manage-toolbar">
+                  <button id="toggleTypeCreateButton" class="inline-button" type="button">新增项目类型</button>
+                </div>
+                <form id="typeForm" class="stack-form hidden">
+                  <input id="typeNameInput" type="text" placeholder="新建项目类型，例如：生活 / 工作 / 学习" required />
+                  <button class="primary-button" type="submit">保存新项目类型</button>
+                </form>
+                <div id="typeConstraintHint" class="inline-hint"></div>
+                <div id="typeList" class="stack-list manage-list"></div>
               </div>
-            </div>
-            <div class="manage-toolbar">
-              <button id="toggleTypeCreateButton" class="inline-button" type="button">新增项目类型</button>
-            </div>
-            <form id="typeForm" class="stack-form hidden">
-              <input id="typeNameInput" type="text" placeholder="新建项目类型，例如：生活 / 工作 / 学习" required />
-              <button class="primary-button" type="submit">保存新项目类型</button>
-            </form>
-            <div id="typeConstraintHint" class="inline-hint"></div>
-            <div id="typeList" class="stack-list manage-list"></div>
-          </section>
+            </article>
 
-          <section class="panel">
-            <div class="panel-title-row">
-              <div>
-                <p class="eyebrow">具体项目管理区</p>
-                <h2>活跃和归档分开看</h2>
+            <article class="manage-accordion-item">
+              <button id="projectSectionToggle" class="manage-accordion-pill" type="button" aria-expanded="false">
+                <span>具体项目管理区</span>
+                <span class="manage-accordion-icon" aria-hidden="true"></span>
+              </button>
+              <div id="projectSection" class="panel manage-accordion-panel hidden">
+                <div class="panel-title-row compact">
+                  <div>
+                    <p class="eyebrow">具体项目管理区</p>
+                    <h2>活跃和归档分开看</h2>
+                  </div>
+                </div>
+                <div class="manage-toolbar">
+                  <button id="toggleProjectCreateButton" class="inline-button" type="button">新增具体项目</button>
+                  <button id="toggleArchivedButton" class="inline-button" type="button">查看已归档项目</button>
+                </div>
+                <form id="projectForm" class="stack-form hidden">
+                  <select id="projectTypeSelect" required></select>
+                  <input id="projectNameInput" type="text" placeholder="新建具体项目，例如：散步 / 阅读 / 跑训练" required />
+                  <select id="projectActorSelect" required>
+                    <option value="self">本人</option>
+                    <option value="agent">Agent</option>
+                  </select>
+                  <button class="primary-button" type="submit">保存新具体项目</button>
+                </form>
+                <div id="projectAdminList" class="stack-list manage-list"></div>
+                <div id="archivedProjectList" class="stack-list manage-list hidden"></div>
               </div>
-            </div>
-            <div class="manage-toolbar">
-              <button id="toggleProjectCreateButton" class="inline-button" type="button">新增具体项目</button>
-              <button id="toggleArchivedButton" class="inline-button" type="button">查看已归档项目</button>
-            </div>
-            <form id="projectForm" class="stack-form hidden">
-              <select id="projectTypeSelect" required></select>
-              <input id="projectNameInput" type="text" placeholder="新建具体项目，例如：散步 / 阅读 / 跑训练" required />
-              <select id="projectActorSelect" required>
-                <option value="self">本人</option>
-                <option value="agent">Agent</option>
-              </select>
-              <button class="primary-button" type="submit">保存新具体项目</button>
-            </form>
-            <div id="projectAdminList" class="stack-list manage-list"></div>
-            <div id="archivedProjectList" class="stack-list manage-list hidden"></div>
+            </article>
           </section>
         </section>
       </main>
@@ -274,13 +323,6 @@
       </nav>
     </div>
 
-    <template id="metricCardTemplate">
-      <article class="metric-card">
-        <span class="metric-label"></span>
-        <strong class="metric-value"></strong>
-        <p class="metric-note"></p>
-      </article>
-    </template>
     <script>
       (function () {
         const script = document.createElement("script");

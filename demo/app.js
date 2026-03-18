@@ -9,9 +9,14 @@ const uiState = {
   historyDateMode: "all",
   historyDateSearch: "",
   historyStatusFilter: "all",
-  dashboardPeriod: "day",
+  dashboardRange: "7d",
+  dashboardChartMode: "line",
+  dashboardSelectedPointIndex: null,
+  dashboardTypeBreakdownExpanded: false,
   historyExpandedId: null,
-  profileEditMode: false,
+  manageExpandedSection: null,
+  manageNicknameEditing: false,
+  dashboardSettingsEditMode: false,
   typeEditId: null,
   projectEditId: null,
   showTypeCreate: false,
@@ -45,23 +50,37 @@ const els = {
   historyDateSearch: document.querySelector("#historyDateSearch"),
   historySummary: document.querySelector("#historySummary"),
   historyList: document.querySelector("#historyList"),
-  dashboardMetrics: document.querySelector("#dashboardMetrics"),
+  dashboardDebtHero: document.querySelector("#dashboardDebtHero"),
+  dashboardTodayProgress: document.querySelector("#dashboardTodayProgress"),
   dashboardTypeBreakdown: document.querySelector("#dashboardTypeBreakdown"),
   dashboardTrend: document.querySelector("#dashboardTrend"),
-  periodButtons: document.querySelectorAll(".period-segment"),
-  manageTitle: document.querySelector("#manageTitle"),
+  dashboardRangeButtons: document.querySelectorAll(".dashboard-range-button"),
+  dashboardModeButtons: document.querySelectorAll(".dashboard-mode-button"),
+  dashboardTypeToggle: document.querySelector("#dashboardTypeToggle"),
+  dashboardTypeToggleLabel: document.querySelector("#dashboardTypeToggleLabel"),
+  manageNicknameForm: document.querySelector("#manageNicknameForm"),
+  manageTitleInput: document.querySelector("#manageTitleInput"),
+  manageTitleConfirmButton: document.querySelector("#manageTitleConfirmButton"),
+  manageTitleHint: document.querySelector("#manageTitleHint"),
   manageNavLabel: document.querySelector("#manageNavLabel"),
-  nicknameForm: document.querySelector("#nicknameForm"),
-  profileCancelButton: document.querySelector("#profileCancelButton"),
-  profileActionButton: document.querySelector("#profileActionButton"),
-  nicknameInput: document.querySelector("#nicknameInput"),
-  mottoInput: document.querySelector("#mottoInput"),
-  nicknameHint: document.querySelector("#nicknameHint"),
+  dashboardSettingsToggle: document.querySelector("#dashboardSettingsToggle"),
+  dashboardSettingsSection: document.querySelector("#dashboardSettingsSection"),
+  dashboardSettingsForm: document.querySelector("#dashboardSettingsForm"),
+  dashboardSettingsActionButton: document.querySelector("#dashboardSettingsActionButton"),
+  dashboardSettingsCancelButton: document.querySelector("#dashboardSettingsCancelButton"),
+  dashboardTargetHoursInput: document.querySelector("#dashboardTargetHoursInput"),
+  dashboardHourlyRateInput: document.querySelector("#dashboardHourlyRateInput"),
+  dashboardDebtStartDateInput: document.querySelector("#dashboardDebtStartDateInput"),
+  dashboardSettingsHint: document.querySelector("#dashboardSettingsHint"),
+  typeSectionToggle: document.querySelector("#typeSectionToggle"),
+  typeSection: document.querySelector("#typeSection"),
   toggleTypeCreateButton: document.querySelector("#toggleTypeCreateButton"),
   typeForm: document.querySelector("#typeForm"),
   typeNameInput: document.querySelector("#typeNameInput"),
   typeConstraintHint: document.querySelector("#typeConstraintHint"),
   typeList: document.querySelector("#typeList"),
+  projectSectionToggle: document.querySelector("#projectSectionToggle"),
+  projectSection: document.querySelector("#projectSection"),
   toggleProjectCreateButton: document.querySelector("#toggleProjectCreateButton"),
   projectForm: document.querySelector("#projectForm"),
   projectTypeSelect: document.querySelector("#projectTypeSelect"),
@@ -72,13 +91,12 @@ const els = {
   archivedProjectList: document.querySelector("#archivedProjectList"),
   recentModeButton: document.querySelector("#recentModeButton"),
   frequentModeButton: document.querySelector("#frequentModeButton"),
-  metricCardTemplate: document.querySelector("#metricCardTemplate"),
 };
 
 const appStore = {
   get() {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : createSeedData();
+    return normalizeData(raw ? JSON.parse(raw) : createSeedData());
   },
   save(nextData) {
     nextData.updatedAt = new Date().toISOString();
@@ -89,8 +107,29 @@ const appStore = {
   },
 };
 
+function normalizeData(data) {
+  const nextData = { ...data };
+  nextData.profile = nextData.profile || { nickname: "", motto: "" };
+  nextData.projectTypes = nextData.projectTypes || [];
+  nextData.projects = nextData.projects || [];
+  nextData.sessions = nextData.sessions || [];
+  nextData.dashboardSettings = normalizeDashboardSettings(nextData.dashboardSettings);
+  return nextData;
+}
+
+function normalizeDashboardSettings(settings) {
+  const today = dateKey(new Date());
+  const debtStartDate = settings?.debtStartDate;
+  return {
+    dailyTargetHours: Number(settings?.dailyTargetHours) > 0 ? Number(settings.dailyTargetHours) : 8,
+    hourlyRate: Number(settings?.hourlyRate) >= 0 ? Number(settings.hourlyRate) : 100,
+    debtStartDate: typeof debtStartDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(debtStartDate) ? debtStartDate : today,
+  };
+}
+
 let timerHandle = null;
 let pendingServiceWorker = null;
+const DASHBOARD_TYPE_COLORS = ["#2f7dff", "#4dbf92", "#f3a446", "#db6c86", "#6f7de6", "#8bb8ff"];
 
 function createId() {
   if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
@@ -152,18 +191,35 @@ function bindEvents() {
     renderHistory();
   });
 
-  els.periodButtons.forEach((button) => {
+  els.dashboardRangeButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      uiState.dashboardPeriod = button.dataset.period;
+      uiState.dashboardRange = button.dataset.range;
       renderDashboard();
     });
   });
+  els.dashboardModeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      uiState.dashboardChartMode = button.dataset.chartMode;
+      renderDashboard();
+    });
+  });
+  els.dashboardTypeToggle.addEventListener("click", () => {
+    uiState.dashboardTypeBreakdownExpanded = !uiState.dashboardTypeBreakdownExpanded;
+    renderDashboard();
+  });
 
-  els.nicknameForm.addEventListener("submit", handleNicknameSubmit);
-  els.profileCancelButton.addEventListener("click", cancelProfileEdit);
-  els.profileActionButton.addEventListener("click", handleProfileAction);
-  els.nicknameInput.addEventListener("input", syncProfileActionButton);
-  els.mottoInput.addEventListener("input", syncProfileActionButton);
+  els.manageNicknameForm.addEventListener("submit", handleManageNicknameSubmit);
+  els.manageTitleInput.addEventListener("focus", handleManageNicknameFocus);
+  els.manageTitleInput.addEventListener("blur", handleManageNicknameBlur);
+  els.dashboardSettingsToggle.addEventListener("click", () => toggleManageSection("dashboard"));
+  els.typeSectionToggle.addEventListener("click", () => toggleManageSection("type"));
+  els.projectSectionToggle.addEventListener("click", () => toggleManageSection("project"));
+  els.dashboardSettingsForm.addEventListener("submit", handleDashboardSettingsSubmit);
+  els.dashboardSettingsCancelButton.addEventListener("click", cancelDashboardSettingsEdit);
+  els.dashboardSettingsActionButton.addEventListener("click", handleDashboardSettingsAction);
+  els.dashboardTargetHoursInput.addEventListener("input", syncDashboardSettingsActionButton);
+  els.dashboardHourlyRateInput.addEventListener("input", syncDashboardSettingsActionButton);
+  els.dashboardDebtStartDateInput.addEventListener("input", syncDashboardSettingsActionButton);
   els.typeForm.addEventListener("submit", handleTypeSubmit);
   els.projectForm.addEventListener("submit", handleProjectSubmit);
   els.toggleTypeCreateButton.addEventListener("click", () => {
@@ -672,64 +728,67 @@ function renderHistoryCard(session, data) {
 
 function renderDashboard() {
   const data = appStore.get();
-  const period = uiState.dashboardPeriod;
-  els.periodButtons.forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.period === period);
+  const settings = getDashboardSettings(data);
+  const dashboardData = buildDashboardViewModel(data, settings, uiState.dashboardRange);
+  const selectedIndex = clampDashboardSelectedPointIndex(dashboardData.trendSeries.length);
+
+  els.dashboardRangeButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.range === uiState.dashboardRange);
+  });
+  els.dashboardModeButtons.forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.chartMode === uiState.dashboardChartMode);
   });
 
-  const metrics = buildDashboardMetrics(data, period);
-  const breakdown = buildTypeBreakdown(data, period);
-  const trend = buildTrend(data, period);
+  els.dashboardDebtHero.innerHTML = renderDashboardDebtHero(dashboardData, settings);
+  els.dashboardTodayProgress.innerHTML = renderDashboardTodayProgress(dashboardData, settings);
+  els.dashboardTrend.innerHTML = renderDashboardTrend(dashboardData, settings, uiState.dashboardChartMode, selectedIndex);
+  bindDashboardTrendInteractions();
 
-  els.dashboardMetrics.innerHTML = "";
-  metrics.forEach((metric) => {
-    const node = els.metricCardTemplate.content.cloneNode(true);
-    node.querySelector(".metric-label").textContent = metric.label;
-    node.querySelector(".metric-value").textContent = metric.value;
-    node.querySelector(".metric-note").textContent = metric.note;
-    els.dashboardMetrics.append(node);
-  });
+  els.dashboardTypeToggle.setAttribute("aria-expanded", String(uiState.dashboardTypeBreakdownExpanded));
+  els.dashboardTypeToggleLabel.textContent = uiState.dashboardTypeBreakdownExpanded ? "收起" : "展开";
+  els.dashboardTypeBreakdown.classList.toggle("hidden", !uiState.dashboardTypeBreakdownExpanded);
+  els.dashboardTypeBreakdown.innerHTML = uiState.dashboardTypeBreakdownExpanded
+    ? renderDashboardTypeBreakdown(dashboardData)
+    : "";
+}
 
-  els.dashboardTypeBreakdown.innerHTML = breakdown.length
-    ? breakdown
-        .map(
-          (item) => `
-            <article class="stack-card">
-              <div class="admin-row">
-                <strong>${escapeHtml(item.name)}</strong>
-                <span class="muted">${formatDuration(item.duration)}</span>
-              </div>
-              <div class="bar-track"><div class="bar" style="width:${item.ratio}%"></div></div>
-            </article>
-          `,
-        )
-        .join("")
-    : `<div class="empty-state">当前周期没有可展示的数据。</div>`;
+function clampDashboardSelectedPointIndex(length) {
+  if (!length) {
+    uiState.dashboardSelectedPointIndex = null;
+    return null;
+  }
 
-  els.dashboardTrend.innerHTML = trend.length
-    ? trend
-        .map(
-          (item) => `
-            <article class="stack-card">
-              <div class="admin-row">
-                <strong>${item.label}</strong>
-                <span class="muted">${formatDuration(item.duration)}</span>
-              </div>
-              <div class="bar-track"><div class="bar" style="width:${item.ratio}%"></div></div>
-            </article>
-          `,
-        )
-        .join("")
-    : `<div class="empty-state">当前周期没有趋势数据。</div>`;
+  if (uiState.dashboardSelectedPointIndex == null || uiState.dashboardSelectedPointIndex >= length) {
+    uiState.dashboardSelectedPointIndex = length - 1;
+  }
+
+  return uiState.dashboardSelectedPointIndex;
 }
 
 function renderManage() {
   const data = appStore.get();
-  renderNickname(data);
+  renderManageIdentity(data);
+  syncManageSections();
+  renderDashboardSettings(data);
   renderTypeSelectOptions(data);
   syncManageCreatePanels();
   renderTypeList(data);
   renderProjectLists(data);
+}
+
+function syncManageSections() {
+  const sectionEntries = [
+    ["dashboard", els.dashboardSettingsToggle, els.dashboardSettingsSection],
+    ["type", els.typeSectionToggle, els.typeSection],
+    ["project", els.projectSectionToggle, els.projectSection],
+  ];
+
+  sectionEntries.forEach(([section, toggle, panel]) => {
+    const expanded = uiState.manageExpandedSection === section;
+    toggle.setAttribute("aria-expanded", String(expanded));
+    toggle.classList.toggle("is-expanded", expanded);
+    panel.classList.toggle("hidden", !expanded);
+  });
 }
 
 function syncManageCreatePanels() {
@@ -739,17 +798,27 @@ function syncManageCreatePanels() {
   els.toggleProjectCreateButton.textContent = uiState.showProjectCreate ? "收起新增具体项目" : "新增具体项目";
 }
 
-function renderNickname(data) {
+function renderManageIdentity(data) {
   const nickname = data.profile?.nickname || "";
-  const motto = data.profile?.motto || "";
-  els.manageTitle.textContent = nickname || "我";
   els.manageNavLabel.textContent = nickname || "我";
-  els.nicknameInput.value = nickname;
-  els.mottoInput.value = motto;
-  els.nicknameInput.disabled = !uiState.profileEditMode;
-  els.mottoInput.disabled = !uiState.profileEditMode;
-  els.nicknameHint.textContent = motto ? `当前座右铭：${motto}` : "还没有设置座右铭。";
-  syncProfileActionButton();
+  if (document.activeElement !== els.manageTitleInput) {
+    els.manageTitleInput.value = nickname || "";
+  }
+  els.manageNicknameForm.classList.toggle("is-editing", uiState.manageNicknameEditing);
+  els.manageTitleConfirmButton.classList.toggle("hidden", !uiState.manageNicknameEditing);
+}
+
+function renderDashboardSettings(data) {
+  const settings = getDashboardSettings(data);
+  els.dashboardTargetHoursInput.value = String(settings.dailyTargetHours);
+  els.dashboardHourlyRateInput.value = String(settings.hourlyRate);
+  els.dashboardDebtStartDateInput.value = settings.debtStartDate;
+  const disabled = !uiState.dashboardSettingsEditMode;
+  els.dashboardTargetHoursInput.disabled = disabled;
+  els.dashboardHourlyRateInput.disabled = disabled;
+  els.dashboardDebtStartDateInput.disabled = disabled;
+  els.dashboardSettingsHint.textContent = `起算日 ${settings.debtStartDate} 起，每天按 ${settings.dailyTargetHours} 小时、时薪 ${settings.hourlyRate} 元累计。`;
+  syncDashboardSettingsActionButton();
 }
 
 function renderTypeSelectOptions(data) {
@@ -910,71 +979,160 @@ function renderProjectAdminCard(project, data, archived) {
   `;
 }
 
-function handleNicknameSubmit(event) {
-  event.preventDefault();
-  if (!uiState.profileEditMode) {
-    return;
-  }
-
-  const nickname = els.nicknameInput.value.trim();
-  const motto = els.mottoInput.value.trim();
+function saveManageNickname() {
+  const nickname = els.manageTitleInput.value.trim();
   if (!nickname) {
-    els.nicknameHint.textContent = "昵称不能为空。";
-    return;
+    const data = appStore.get();
+    els.manageTitleInput.value = data.profile?.nickname || "";
+    els.manageTitleHint.textContent = "昵称不能为空。";
+    return false;
   }
 
   const data = appStore.get();
+  const currentNickname = data.profile?.nickname || "";
+  if (nickname === currentNickname) {
+    return true;
+  }
+
   data.profile = {
     ...(data.profile || {}),
     nickname,
-    motto,
   };
   appStore.save(data);
-  uiState.profileEditMode = false;
-  renderManage();
+  els.manageNavLabel.textContent = nickname;
+  els.manageTitleHint.textContent = "";
+  return true;
 }
 
-function handleProfileAction() {
-  if (!uiState.profileEditMode) {
-    uiState.profileEditMode = true;
-    renderManage();
-    els.nicknameInput.focus();
+function handleManageNicknameSubmit(event) {
+  event.preventDefault();
+  if (!saveManageNickname()) {
     return;
   }
 
-  if (els.profileActionButton.disabled) {
+  uiState.manageNicknameEditing = false;
+  renderManageIdentity(appStore.get());
+  els.manageTitleInput.setSelectionRange(0, 0);
+  requestAnimationFrame(() => {
+    els.manageTitleConfirmButton.blur();
+    els.manageTitleInput.blur();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  });
+}
+
+function handleManageNicknameFocus() {
+  uiState.manageNicknameEditing = true;
+  renderManageIdentity(appStore.get());
+}
+
+function handleManageNicknameBlur(event) {
+  if (event.relatedTarget === els.manageTitleConfirmButton) {
     return;
   }
 
-  els.nicknameForm.requestSubmit();
-}
-
-function syncProfileActionButton() {
   const data = appStore.get();
-  const currentNickname = data.profile?.nickname || "";
-  const currentMotto = data.profile?.motto || "";
+  uiState.manageNicknameEditing = false;
+  els.manageTitleInput.value = data.profile?.nickname || "";
+  els.manageNavLabel.textContent = data.profile?.nickname || "我";
+  els.manageTitleHint.textContent = "";
+  renderManageIdentity(data);
+}
 
-  if (!uiState.profileEditMode) {
-    els.profileCancelButton.classList.add("hidden");
-    els.profileActionButton.textContent = "编辑";
-    els.profileActionButton.disabled = false;
-    els.profileActionButton.classList.remove("is-primary");
+function toggleManageSection(section) {
+  if (uiState.manageExpandedSection === section) {
+    uiState.manageExpandedSection = null;
+    resetManageInlineState();
+    renderManage();
     return;
   }
 
-  els.profileCancelButton.classList.remove("hidden");
-  const hasChanges =
-    els.nicknameInput.value.trim() !== currentNickname ||
-    els.mottoInput.value.trim() !== currentMotto;
-
-  els.profileActionButton.textContent = "保存信息";
-  els.profileActionButton.disabled = !hasChanges;
-  els.profileActionButton.classList.toggle("is-primary", hasChanges);
+  uiState.manageExpandedSection = section;
+  resetManageInlineState();
+  renderManage();
 }
 
-function cancelProfileEdit() {
-  uiState.profileEditMode = false;
+function resetManageInlineState() {
+  uiState.dashboardSettingsEditMode = false;
+  uiState.showTypeCreate = false;
+  uiState.showProjectCreate = false;
+  uiState.typeEditId = null;
+  uiState.projectEditId = null;
+  els.typeConstraintHint.textContent = "";
+  els.typeForm.reset();
+  els.projectForm.reset();
+}
+
+function handleDashboardSettingsAction() {
+  if (!uiState.dashboardSettingsEditMode) {
+    uiState.dashboardSettingsEditMode = true;
+    renderManage();
+    els.dashboardTargetHoursInput.focus();
+    return;
+  }
+
+  if (els.dashboardSettingsActionButton.disabled) {
+    return;
+  }
+
+  els.dashboardSettingsForm.requestSubmit();
+}
+
+function cancelDashboardSettingsEdit() {
+  uiState.dashboardSettingsEditMode = false;
   renderManage();
+}
+
+function handleDashboardSettingsSubmit(event) {
+  event.preventDefault();
+  if (!uiState.dashboardSettingsEditMode) {
+    return;
+  }
+
+  const dailyTargetHours = Number(els.dashboardTargetHoursInput.value);
+  const hourlyRate = Number(els.dashboardHourlyRateInput.value);
+  const debtStartDate = els.dashboardDebtStartDateInput.value;
+  if (!dailyTargetHours || dailyTargetHours <= 0 || !Number.isFinite(hourlyRate) || hourlyRate < 0 || !debtStartDate) {
+    els.dashboardSettingsHint.textContent = "请把每日目标工时、时薪和起算日期填完整。";
+    return;
+  }
+
+  if (parseDateOnly(debtStartDate) > startOfDay(new Date())) {
+    els.dashboardSettingsHint.textContent = "起算日期不能晚于今天，不然这本账还没开始。";
+    return;
+  }
+
+  const data = appStore.get();
+  data.dashboardSettings = {
+    dailyTargetHours,
+    hourlyRate,
+    debtStartDate,
+  };
+  appStore.save(data);
+  uiState.dashboardSettingsEditMode = false;
+  render();
+}
+
+function syncDashboardSettingsActionButton() {
+  const data = appStore.get();
+  const settings = getDashboardSettings(data);
+  if (!uiState.dashboardSettingsEditMode) {
+    els.dashboardSettingsCancelButton.classList.add("hidden");
+    els.dashboardSettingsActionButton.textContent = "编辑";
+    els.dashboardSettingsActionButton.disabled = false;
+    els.dashboardSettingsActionButton.classList.remove("is-primary");
+    return;
+  }
+
+  els.dashboardSettingsCancelButton.classList.remove("hidden");
+  const hasChanges =
+    Number(els.dashboardTargetHoursInput.value) !== settings.dailyTargetHours ||
+    Number(els.dashboardHourlyRateInput.value) !== settings.hourlyRate ||
+    els.dashboardDebtStartDateInput.value !== settings.debtStartDate;
+  els.dashboardSettingsActionButton.textContent = "保存设置";
+  els.dashboardSettingsActionButton.disabled = !hasChanges;
+  els.dashboardSettingsActionButton.classList.toggle("is-primary", hasChanges);
 }
 
 function handleTypeSubmit(event) {
@@ -1507,84 +1665,576 @@ function getIsoWeekInfo(date) {
   };
 }
 
-function buildDashboardMetrics(data, period) {
-  const scoped = getSessionsForPeriod(data, period);
-  const selfSessions = scoped.filter((session) => findProject(data, session.projectId)?.actor === "self");
-  const agentSessions = scoped.filter((session) => findProject(data, session.projectId)?.actor === "agent");
-  return [
-    { label: "当前周期本人投入", value: formatDuration(sumDurations(selfSessions)), note: "只统计已结束或当前进行中的本人任务。" },
-    { label: "当前周期 Agent 耗时", value: formatDuration(sumDurations(agentSessions)), note: "独立于本人时间展示。" },
-    { label: "当前周期记录数", value: `${scoped.length}`, note: "当前周期内的全部任务记录数。" },
-    { label: "当前周期进行中", value: `${scoped.filter((session) => !session.endAt).length}`, note: "尚未结束的记录。" },
-  ];
+function getDashboardSettings(data) {
+  return normalizeDashboardSettings(data.dashboardSettings);
 }
 
-function buildTypeBreakdown(data, period) {
-  const scoped = getSessionsForPeriod(data, period);
+function buildDashboardViewModel(data, settings, rangeKey) {
+  const now = new Date();
+  const todayStart = startOfDay(now);
+  const yesterdayEnd = todayStart;
+  const debtStart = maxDate(parseDateOnly(settings.debtStartDate), startOfDay(new Date(2000, 0, 1)));
+  const dayTargetMs = hoursToMs(settings.dailyTargetHours);
+  const hasWorkType = data.projectTypes.some((type) => type.name === "工作");
+  const workProjects = getWorkProjects(data);
+  const workSessions = getWorkSessions(data);
+  const recordedDays = Math.max(0, diffCalendarDays(debtStart, todayStart) + 1);
+  const chargeableDays = Math.max(0, diffCalendarDays(debtStart, todayStart));
+  const cumulativeTargetMs = chargeableDays * dayTargetMs;
+  const cumulativeActualMs = sumIntervalDurations(workSessions, debtStart, yesterdayEnd);
+  const cumulativeBalanceMs = cumulativeActualMs - cumulativeTargetMs;
+  const todayActualMs = sumIntervalDurations(workSessions, maxDate(debtStart, todayStart), now);
+  const todayBalanceMs = todayActualMs - dayTargetMs;
+  const range = getDashboardRangeConfig(rangeKey, now);
+  const effectiveRange = { ...range, start: maxDate(range.start, debtStart) };
+  const trendBuckets = buildDashboardTrendBuckets(effectiveRange, now);
+  const trendSeries = trendBuckets.map((bucket) => {
+    const effectiveMs = sumIntervalDurations(workSessions, bucket.start, bucket.end);
+    const targetMs = bucket.targetDays * dayTargetMs;
+    return {
+      ...bucket,
+      effectiveMs,
+      targetMs,
+      surplusMs: effectiveMs - targetMs,
+    };
+  });
+
+  return {
+    now,
+    settings,
+    hasWorkType,
+    hasWorkProjects: workProjects.length > 0,
+    hasWorkSessions: workSessions.length > 0,
+    workProjectCount: workProjects.length,
+    workSessionCount: workSessions.length,
+    range: effectiveRange,
+    recordedDays,
+    cumulativeBalanceMs,
+    cumulativeMoney: Math.round((cumulativeBalanceMs / 3600000) * settings.hourlyRate),
+    todayActualMs,
+    todayTargetMs: dayTargetMs,
+    todayBalanceMs,
+    trendSeries,
+    typeBreakdown: buildDashboardTypeBreakdown(data, workProjectIdsFromProjects(workProjects), effectiveRange.start, effectiveRange.end),
+  };
+}
+
+function renderDashboardDebtHero(viewModel, settings) {
+  if (!viewModel.hasWorkType) {
+    return `
+      <article class="dashboard-debt-hero is-empty">
+        <div class="dashboard-debt-main">
+          <p class="dashboard-hero-kicker">累计工时账本</p>
+          <strong class="dashboard-debt-value">先建一个“工作”类型</strong>
+          <p class="dashboard-debt-note">这套仪表盘只统计项目类型为“工作”的记录。先去 Manage 里建好“工作”，这里才会开始算账。</p>
+        </div>
+      </article>
+    `;
+  }
+
+  if (!viewModel.hasWorkProjects) {
+    return `
+      <article class="dashboard-debt-hero is-empty">
+        <div class="dashboard-debt-main">
+          <p class="dashboard-hero-kicker">累计工时账本</p>
+          <strong class="dashboard-debt-value">工作项目还没建起来</strong>
+          <p class="dashboard-debt-note">已经有“工作”类型了，但它下面还没有具体项目。先补一个工作项目，仪表盘才有真实输入。</p>
+        </div>
+      </article>
+    `;
+  }
+
+  const isDebt = viewModel.cumulativeBalanceMs < 0;
+  const balanceAbs = Math.abs(viewModel.cumulativeBalanceMs);
+  const moneyAbs = Math.abs(viewModel.cumulativeMoney);
+  const debtLevel = Math.min(1, Math.abs(viewModel.todayBalanceMs) / Math.max(viewModel.todayTargetMs, 1));
+  const toneClass = isDebt ? `is-debt debt-level-${Math.min(4, Math.ceil(debtLevel * 4))}` : "is-surplus";
+  return `
+    <article class="dashboard-debt-hero ${toneClass}">
+      <div class="dashboard-debt-main">
+        <p class="dashboard-hero-kicker">${isDebt ? "累计工时负债" : "累计工时盈余"}</p>
+        <strong class="dashboard-debt-value">${formatDuration(balanceAbs)}</strong>
+        <p class="dashboard-debt-note">${isDebt ? "从起算日起累计欠下的可用工时。" : "从起算日起累计结余的可用工时。"}</p>
+      </div>
+      <div class="dashboard-debt-side">
+        <div class="dashboard-mini-stat">
+          <span class="dashboard-mini-label">${isDebt ? "金额负债" : "金额盈余"}</span>
+          <strong>${formatCurrency(moneyAbs)}</strong>
+        </div>
+        <div class="dashboard-mini-stat">
+          <span class="dashboard-mini-label">已记录天数</span>
+          <strong>${viewModel.recordedDays} 天</strong>
+        </div>
+        <div class="dashboard-mini-stat">
+          <span class="dashboard-mini-label">每日目标</span>
+          <strong>${formatHours(settings.dailyTargetHours)}</strong>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderDashboardTodayProgress(viewModel, settings) {
+  if (!viewModel.hasWorkType || !viewModel.hasWorkProjects) {
+    return `
+      <article class="dashboard-progress-card is-empty">
+        <div class="dashboard-progress-head">
+          <div>
+            <p class="eyebrow">今日工作进度</p>
+            <h2>等工作项目准备好再开始计</h2>
+          </div>
+        </div>
+        <p class="muted">当前还没有可纳入这套账本的“工作”项目，所以今天进度先不计算。</p>
+      </article>
+    `;
+  }
+
+  const isDone = viewModel.todayBalanceMs >= 0;
+  const deltaText = isDone ? `今日超出 ${formatDuration(viewModel.todayBalanceMs)}` : `今日还差 ${formatDuration(Math.abs(viewModel.todayBalanceMs))}`;
+  const statusTone = isDone ? "is-done" : "is-warning";
+  return `
+    <article class="dashboard-progress-card ${statusTone}">
+      <div class="dashboard-progress-head">
+        <div>
+          <p class="eyebrow">今日工作进度</p>
+          <h2>${deltaText}</h2>
+        </div>
+        <span class="dashboard-progress-mark" aria-label="${isDone ? "已达标" : "未达标"}">${isDone ? "✓" : "✕"}</span>
+      </div>
+      <div class="dashboard-progress-grid">
+        <div class="dashboard-mini-stat">
+          <span class="dashboard-mini-label">今日有效工时</span>
+          <strong>${formatDuration(viewModel.todayActualMs)}</strong>
+        </div>
+        <div class="dashboard-mini-stat">
+          <span class="dashboard-mini-label">今日目标工时</span>
+          <strong>${formatHours(settings.dailyTargetHours)}</strong>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderDashboardTrend(viewModel, settings, chartMode, selectedIndex) {
+  if (!viewModel.hasWorkType) {
+    return `<div class="empty-state">还没有“工作”类型，所以趋势区暂时无从统计。先去 Manage 里建一个“工作”类型，再来切图和切时间范围才有意义。</div>`;
+  }
+
+  if (!viewModel.hasWorkProjects) {
+    return `<div class="empty-state">“工作”类型下还没有具体项目，趋势区先空着。先建一个工作项目，图形切换和时间范围才会长出内容。</div>`;
+  }
+
+  if (!viewModel.hasWorkSessions) {
+    return `<div class="empty-state">“工作”类型下还没有任何记录。先开始一次工作任务，这里才会长出趋势；现在点切换按钮，内容不会有明显变化。</div>`;
+  }
+
+  if (!viewModel.trendSeries.length) {
+    return `<div class="empty-state">当前范围内还没有足够的工作趋势数据。</div>`;
+  }
+
+  const subtitle = `${viewModel.range.label} · ${viewModel.range.granularityLabel}粒度`;
+  const chart =
+    chartMode === "bar"
+      ? renderBarTrendChart(viewModel.trendSeries, settings, selectedIndex)
+      : renderLineTrendChart(viewModel.trendSeries, settings, selectedIndex);
+  const selectedItem = viewModel.trendSeries[selectedIndex ?? Math.max(0, viewModel.trendSeries.length - 1)];
+  return `
+    <article class="dashboard-chart-card">
+      <div class="dashboard-chart-header">
+        <div>
+          <strong>${chartMode === "bar" ? "目标对照柱状图" : "工时盈余折线图"}</strong>
+          <p class="muted">${subtitle}</p>
+        </div>
+      </div>
+      ${chart}
+      <div class="dashboard-chart-detail">
+        <span class="dashboard-chart-detail-label">点一下图里的点或柱</span>
+        <strong class="dashboard-chart-detail-value">${escapeHtml(formatTrendBucketDetail(selectedItem))}</strong>
+      </div>
+      <div class="dashboard-legend">
+        ${
+          chartMode === "bar"
+            ? `
+              <span class="dashboard-legend-item"><span class="legend-swatch is-bar"></span>有效工时</span>
+              <span class="dashboard-legend-item"><span class="legend-swatch is-target-dots"></span>目标工时</span>
+            `
+            : `
+              <span class="dashboard-legend-item"><span class="legend-swatch is-surplus-line"></span>工时盈余</span>
+              <span class="dashboard-legend-item"><span class="legend-swatch is-effective-line"></span>有效工时</span>
+              <span class="dashboard-legend-item"><span class="legend-swatch is-target-line"></span>目标工时</span>
+            `
+        }
+      </div>
+    </article>
+  `;
+}
+
+function renderDashboardTypeBreakdown(viewModel) {
+  if (!viewModel.hasWorkSessions) {
+    return `<div class="empty-state">当前范围内还没有工作记录，所以还看不到类型分布。</div>`;
+  }
+
+  if (!viewModel.typeBreakdown.length) {
+    return `<div class="empty-state">当前范围内还没有可展示的类型分布。</div>`;
+  }
+
+  const gradient = viewModel.typeBreakdown
+    .map((item, index) => `${item.color} ${item.start}% ${item.end}%`)
+    .join(", ");
+  return `
+    <div class="dashboard-breakdown-wrap">
+      <div class="dashboard-pie" style="background: conic-gradient(${gradient});"></div>
+      <div class="dashboard-breakdown-list">
+        ${viewModel.typeBreakdown
+          .map(
+            (item) => `
+              <div class="dashboard-breakdown-item">
+                <span class="dashboard-breakdown-name"><span class="legend-swatch" style="background:${item.color};"></span>${escapeHtml(item.name)}</span>
+                <span class="muted">${formatDuration(item.duration)} · ${item.ratio}%</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderLineTrendChart(series, settings, selectedIndex) {
+  const width = 640;
+  const height = 260;
+  const left = 60;
+  const right = 18;
+  const top = 18;
+  const bottom = 46;
+  const chartHeight = height - top - bottom;
+  const maxValue = Math.max(...series.flatMap((item) => [item.surplusMs, item.effectiveMs, item.targetMs]), hoursToMs(settings.dailyTargetHours), 1);
+  const minValue = Math.min(...series.map((item) => item.surplusMs), 0);
+  const chartWidth = width - left - right;
+  const stepX = series.length > 1 ? chartWidth / (series.length - 1) : 0;
+  const axisTicks = buildChartAxisTicks(minValue, maxValue, 4);
+  const points = series.map((item, index) => ({
+    x: left + stepX * index,
+    surplusY: projectChartValue(item.surplusMs, minValue, maxValue, top, chartHeight),
+    effectiveY: projectChartValue(item.effectiveMs, minValue, maxValue, top, chartHeight),
+    targetY: projectChartValue(item.targetMs, minValue, maxValue, top, chartHeight),
+    label: item.label,
+  }));
+  const hitWidth = series.length > 1 ? Math.max(28, stepX * 0.72) : 56;
+  return `
+    <svg class="dashboard-chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="工作工时趋势折线图">
+      ${buildChartGrid(width, height, top, chartHeight, left, right, axisTicks)}
+      <text x="${left - 34}" y="${top - 2}" class="chart-unit-label">h</text>
+      ${series
+        .map((item, index) => {
+          const point = points[index];
+          const x = Math.max(left, point.x - hitWidth / 2);
+          const boundedWidth = Math.min(hitWidth, width - right - x);
+          return `<rect x="${x}" y="${top}" width="${boundedWidth}" height="${chartHeight}" rx="12" class="chart-hit-zone" data-chart-index="${index}"></rect>`;
+        })
+        .join("")}
+      <path d="${buildLinePath(points, "surplusY")}" class="chart-line surplus-line" />
+      <path d="${buildLinePath(points, "effectiveY")}" class="chart-line effective-line" />
+      <path d="${buildLinePath(points, "targetY")}" class="chart-line target-line" />
+      ${points
+        .map(
+          (point, index) => `
+            ${selectedIndex === index ? `<circle cx="${point.x}" cy="${point.surplusY}" r="8.5" class="chart-dot-ring surplus-ring"></circle>` : ""}
+            ${selectedIndex === index ? `<circle cx="${point.x}" cy="${point.effectiveY}" r="8.5" class="chart-dot-ring effective-ring"></circle>` : ""}
+            ${selectedIndex === index ? `<circle cx="${point.x}" cy="${point.targetY}" r="8.5" class="chart-dot-ring target-ring"></circle>` : ""}
+            <circle cx="${point.x}" cy="${point.surplusY}" r="${selectedIndex === index ? 5.2 : 3.5}" class="chart-dot surplus-dot ${selectedIndex === index ? "is-active" : ""}" data-chart-index="${index}"></circle>
+            <circle cx="${point.x}" cy="${point.effectiveY}" r="${selectedIndex === index ? 5.2 : 3.5}" class="chart-dot effective-dot ${selectedIndex === index ? "is-active" : ""}" data-chart-index="${index}"></circle>
+            <circle cx="${point.x}" cy="${point.targetY}" r="${selectedIndex === index ? 5.2 : 3.5}" class="chart-dot target-dot ${selectedIndex === index ? "is-active" : ""}" data-chart-index="${index}"></circle>
+            ${shouldShowChartLabel(index, series.length) ? `<text x="${point.x}" y="${height - 18}" text-anchor="middle" class="chart-label">${escapeHtml(point.label)}</text>` : ""}
+          `,
+        )
+        .join("")}
+    </svg>
+  `;
+}
+
+function renderBarTrendChart(series, settings, selectedIndex) {
+  const width = 640;
+  const height = 260;
+  const left = 60;
+  const right = 18;
+  const top = 18;
+  const bottom = 46;
+  const chartHeight = height - top - bottom;
+  const maxValue = Math.max(...series.map((item) => Math.max(item.effectiveMs, item.targetMs)), hoursToMs(settings.dailyTargetHours), 1);
+  const minValue = 0;
+  const chartWidth = width - left - right;
+  const stepX = series.length > 0 ? chartWidth / series.length : 0;
+  const barWidth = Math.max(10, stepX * 0.48);
+  const axisTicks = buildChartAxisTicks(minValue, maxValue, 4);
+  return `
+    <svg class="dashboard-chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="工作工时趋势柱状图">
+      ${buildChartGrid(width, height, top, chartHeight, left, right, axisTicks)}
+      <text x="${left - 34}" y="${top - 2}" class="chart-unit-label">h</text>
+      ${series
+        .map((item, index) => {
+          const x = left + stepX * index + (stepX - barWidth) / 2;
+          const barHeight = (item.effectiveMs / maxValue) * chartHeight;
+          const y = top + chartHeight - barHeight;
+          const targetY = top + chartHeight - (item.targetMs / maxValue) * chartHeight;
+          return `
+            <rect x="${left + stepX * index}" y="${top}" width="${stepX}" height="${chartHeight}" rx="12" class="chart-hit-zone" data-chart-index="${index}"></rect>
+            <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="10" class="chart-bar ${selectedIndex === index ? "is-active" : ""}" data-chart-index="${index}"></rect>
+            <line x1="${x - 4}" y1="${targetY}" x2="${x + barWidth + 4}" y2="${targetY}" class="chart-target-line ${selectedIndex === index ? "is-active" : ""}" data-chart-index="${index}"></line>
+            ${buildTargetDots(x, barWidth, targetY, selectedIndex === index, index)}
+            ${shouldShowChartLabel(index, series.length) ? `<text x="${x + barWidth / 2}" y="${height - 18}" text-anchor="middle" class="chart-label">${escapeHtml(item.label)}</text>` : ""}
+          `;
+        })
+        .join("")}
+    </svg>
+  `;
+}
+
+function buildDashboardTypeBreakdown(data, workProjectIds, rangeStart, rangeEnd) {
   const totals = new Map();
-  scoped.forEach((session) => {
+  data.sessions.forEach((session) => {
+    if (!workProjectIds.has(session.projectId)) {
+      return;
+    }
+    const duration = getOverlapDurationMs(session, rangeStart, rangeEnd);
+    if (!duration) {
+      return;
+    }
     const project = findProject(data, session.projectId);
     const type = findType(data, project?.typeId);
     const key = type?.name || "未分类";
-    totals.set(key, (totals.get(key) || 0) + getSessionDurationMs(session));
+    totals.set(key, (totals.get(key) || 0) + duration);
   });
-  const totalDuration = [...totals.values()].reduce((sum, value) => sum + value, 0) || 1;
+  const totalDuration = [...totals.values()].reduce((sum, value) => sum + value, 0);
+  if (!totalDuration) {
+    return [];
+  }
+  let cursor = 0;
   return [...totals.entries()]
-    .map(([name, duration]) => ({ name, duration, ratio: Math.round((duration / totalDuration) * 100) }))
-    .sort((a, b) => b.duration - a.duration);
-}
-
-function buildTrend(data, period) {
-  const buckets = getTrendBuckets(period);
-  const results = buckets.map((bucket) => {
-    const duration = data.sessions.reduce((sum, session) => {
-      return isSessionInBucket(session, bucket) ? sum + getSessionDurationMs(session) : sum;
-    }, 0);
-    return { label: bucket.label, duration };
-  });
-  const max = Math.max(...results.map((item) => item.duration), 1);
-  return results.map((item) => ({ ...item, ratio: Math.round((item.duration / max) * 100) }));
-}
-
-function getSessionsForPeriod(data, period) {
-  const now = new Date();
-  return data.sessions.filter((session) => {
-    const start = new Date(session.startAt);
-    if (period === "day") {
-      return dateKey(start) === dateKey(now);
-    }
-    if (period === "week") {
-      return start >= startOfWeek(now);
-    }
-    return start >= startOfMonth(now);
-  });
-}
-
-function getTrendBuckets(period) {
-  const now = new Date();
-  if (period === "day") {
-    return [
-      { label: "00-06", start: setTodayHour(0), end: setTodayHour(6) },
-      { label: "06-12", start: setTodayHour(6), end: setTodayHour(12) },
-      { label: "12-18", start: setTodayHour(12), end: setTodayHour(18) },
-      { label: "18-24", start: setTodayHour(18), end: setTodayHour(24) },
-    ];
-  }
-  if (period === "week") {
-    return Array.from({ length: 7 }, (_, index) => {
-      const date = new Date(now);
-      date.setDate(now.getDate() - (6 - index));
-      const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      return { label: `${date.getMonth() + 1}/${date.getDate()}`, start: dayStart, end: new Date(dayStart.getTime() + 24 * 60 * 60 * 1000) };
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, duration], index) => {
+      const ratio = Math.round((duration / totalDuration) * 100);
+      const start = cursor;
+      const end = cursor + (duration / totalDuration) * 100;
+      cursor = end;
+      return {
+        name,
+        duration,
+        ratio,
+        color: DASHBOARD_TYPE_COLORS[index % DASHBOARD_TYPE_COLORS.length],
+        start,
+        end,
+      };
     });
+}
+
+function getDashboardRangeConfig(rangeKey, now) {
+  const todayStart = startOfDay(now);
+  const tomorrowStart = addDays(todayStart, 1);
+  if (rangeKey === "30d") {
+    return { key: rangeKey, label: "最近30天", granularity: "day", granularityLabel: "按天", start: addDays(todayStart, -29), end: tomorrowStart };
   }
-  return Array.from({ length: 4 }, (_, index) => {
-    const end = new Date(now);
-    end.setDate(now.getDate() - index * 7);
-    const start = new Date(end);
-    start.setDate(end.getDate() - 7);
-    return { label: `近第 ${4 - index} 周`, start, end };
-  }).reverse();
+  if (rangeKey === "180d") {
+    return { key: rangeKey, label: "最近180天", granularity: "week", granularityLabel: "按周", start: addDays(todayStart, -179), end: tomorrowStart };
+  }
+  if (rangeKey === "1y") {
+    const start = new Date(todayStart.getFullYear(), todayStart.getMonth() - 11, 1);
+    return { key: rangeKey, label: "最近1年", granularity: "month", granularityLabel: "按月", start, end: tomorrowStart };
+  }
+  if (rangeKey === "3y") {
+    const start = new Date(todayStart.getFullYear(), todayStart.getMonth() - 35, 1);
+    return { key: rangeKey, label: "最近3年", granularity: "month", granularityLabel: "按月", start, end: tomorrowStart };
+  }
+  return { key: "7d", label: "最近7天", granularity: "day", granularityLabel: "按天", start: addDays(todayStart, -6), end: tomorrowStart };
+}
+
+function buildDashboardTrendBuckets(range, now) {
+  const buckets = [];
+  if (range.granularity === "day") {
+    let cursor = new Date(range.start);
+    while (cursor < range.end) {
+      const next = addDays(cursor, 1);
+      buckets.push({ label: `${cursor.getMonth() + 1}/${cursor.getDate()}`, start: new Date(cursor), end: next, targetDays: 1 });
+      cursor = next;
+    }
+    return buckets;
+  }
+
+  if (range.granularity === "week") {
+    let cursor = startOfWeek(range.start);
+    while (cursor < range.end) {
+      const next = addDays(cursor, 7);
+      const start = cursor < range.start ? new Date(range.start) : new Date(cursor);
+      const end = next > range.end ? new Date(range.end) : new Date(next);
+      buckets.push({ label: `${start.getMonth() + 1}/${start.getDate()}`, start, end, targetDays: Math.max(1, diffCalendarDays(start, end)) });
+      cursor = next;
+    }
+    return buckets.slice(-26);
+  }
+
+  let cursor = new Date(range.start.getFullYear(), range.start.getMonth(), 1);
+  while (cursor < range.end) {
+    const next = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    const start = cursor < range.start ? new Date(range.start) : new Date(cursor);
+    const end = next > range.end ? new Date(range.end) : new Date(next);
+    buckets.push({ label: `${start.getFullYear()}/${pad(start.getMonth() + 1)}`, start, end, targetDays: Math.max(1, diffCalendarDays(start, end)) });
+    cursor = next;
+  }
+  return buckets;
+}
+
+function workProjectIdsFromProjects(projects) {
+  return new Set(projects.map((project) => project.id));
+}
+
+function getWorkProjects(data) {
+  return data.projects.filter((project) => {
+    const type = findType(data, project.typeId);
+    return type?.name === "工作";
+  });
+}
+
+function getWorkSessions(data) {
+  const workProjectIds = workProjectIdsFromProjects(getWorkProjects(data));
+  return data.sessions.filter((session) => workProjectIds.has(session.projectId));
+}
+
+function sumIntervalDurations(sessions, start, end) {
+  return sessions.reduce((sum, session) => sum + getOverlapDurationMs(session, start, end), 0);
+}
+
+function getOverlapDurationMs(session, rangeStart, rangeEnd) {
+  const sessionStart = new Date(session.startAt);
+  const sessionEnd = session.endAt ? new Date(session.endAt) : new Date();
+  const start = Math.max(sessionStart.getTime(), rangeStart.getTime());
+  const end = Math.min(sessionEnd.getTime(), rangeEnd.getTime());
+  return Math.max(0, end - start);
+}
+
+function hoursToMs(hours) {
+  return Math.round(hours * 60 * 60 * 1000);
+}
+
+function formatHours(hours) {
+  return Number.isInteger(hours) ? `${hours} 小时` : `${hours} 小时`;
+}
+
+function formatCurrency(amount) {
+  return `¥${Math.round(amount).toLocaleString("zh-CN")}`;
+}
+
+function parseDateOnly(value) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function maxDate(a, b) {
+  return a > b ? new Date(a) : new Date(b);
+}
+
+function diffCalendarDays(start, end) {
+  return Math.floor((startOfDay(end).getTime() - startOfDay(start).getTime()) / (24 * 60 * 60 * 1000));
+}
+
+function buildChartGrid(width, height, top, chartHeight, left, right, axisTicks) {
+  return axisTicks
+    .map((tick) => {
+      const y = projectChartValue(tick.value, axisTicks[axisTicks.length - 1].value, axisTicks[0].value, top, chartHeight);
+      return `
+        <line x1="${left}" y1="${y}" x2="${width - right}" y2="${y}" class="chart-grid-line"></line>
+        <text x="${left - 10}" y="${y + 4}" text-anchor="end" class="chart-axis-label">${tick.label}</text>
+      `;
+    })
+    .join("");
+}
+
+function buildLinePath(points, key) {
+  return points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point[key]}`).join(" ");
+}
+
+function bindDashboardTrendInteractions() {
+  els.dashboardTrend.querySelectorAll("[data-chart-index]").forEach((node) => {
+    const updateSelection = () => {
+      const index = Number(node.dataset.chartIndex);
+      if (!Number.isFinite(index)) {
+        return;
+      }
+      uiState.dashboardSelectedPointIndex = index;
+      renderDashboard();
+    };
+
+    node.addEventListener("click", updateSelection);
+    node.addEventListener("touchstart", updateSelection, { passive: true });
+  });
+}
+
+function projectChartValue(value, minValue, maxValue, top, chartHeight) {
+  const span = Math.max(1, maxValue - minValue);
+  return top + chartHeight - ((value - minValue) / span) * chartHeight;
+}
+
+function buildChartAxisTicks(minValue, maxValue, tickCount) {
+  const safeMin = Math.min(minValue, 0);
+  const safeMax = Math.max(maxValue, 0);
+  const span = Math.max(1, safeMax - safeMin);
+  return Array.from({ length: tickCount }, (_, index) => {
+    const ratio = index / (tickCount - 1);
+    const value = safeMax - span * ratio;
+    return {
+      value,
+      label: formatAxisHours(value),
+    };
+  });
+}
+
+function formatAxisHours(ms) {
+  const hours = ms / 3600000;
+  const rounded = Math.abs(hours) >= 10 ? Math.round(hours) : Math.round(hours * 10) / 10;
+  return `${rounded}`;
+}
+
+function formatTrendBucketDetail(item) {
+  return `${item.label} · 盈余 ${formatSignedHours(item.surplusMs)} · 有效 ${formatDetailedHours(item.effectiveMs)} · 目标 ${formatDetailedHours(item.targetMs)}`;
+}
+
+function formatDetailedHours(ms) {
+  const hours = Math.round((ms / 3600000) * 10) / 10;
+  return `${hours}h`;
+}
+
+function formatSignedHours(ms) {
+  const sign = ms > 0 ? "+" : ms < 0 ? "-" : "";
+  return `${sign}${formatDetailedHours(Math.abs(ms))}`;
+}
+
+function buildTargetDots(x, barWidth, y, isActive = false, selectedIndex = -1) {
+  return Array.from({ length: 4 }, (_, dotIndex) => {
+    const pointX = x + (barWidth / 3) * dotIndex;
+    return `<circle cx="${pointX}" cy="${y}" r="${isActive ? 3.2 : 2.4}" class="chart-target-dot ${isActive ? "is-active" : ""}" data-chart-index="${selectedIndex}"></circle>`;
+  }).join("");
+}
+
+function shouldShowChartLabel(index, total) {
+  if (total <= 8) {
+    return true;
+  }
+  if (total <= 14) {
+    return index % 2 === 0;
+  }
+  if (total <= 30) {
+    return index % 4 === 0 || index === total - 1;
+  }
+  return index % 6 === 0 || index === total - 1;
 }
 
 function isSessionInBucket(session, bucket) {
@@ -1697,6 +2347,11 @@ function createSeedData() {
     profile: {
       nickname: "曦哥",
       motto: "时间不可控，注意力可安放。",
+    },
+    dashboardSettings: {
+      dailyTargetHours: 8,
+      hourlyRate: 120,
+      debtStartDate: dateKey(new Date(now - 21 * 24 * 60 * 60 * 1000)),
     },
     projectTypes: [
       { id: typeLifeId, name: "生活", sortOrder: 0, createdAt: isoOffset(now, -10), updatedAt: isoOffset(now, -10) },
